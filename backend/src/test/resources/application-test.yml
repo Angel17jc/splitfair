@@ -3,6 +3,11 @@
 spring:
   jpa:
     show-sql: false
+    properties:
+      hibernate:
+        # Permite contar las consultas realmente ejecutadas y convertir
+        # "creo que no hay N+1" en una asercion verificable.
+        generate_statistics: true
   flyway:
     enabled: true
 

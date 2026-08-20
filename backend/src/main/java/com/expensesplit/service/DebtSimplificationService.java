@@ -1,80 +1,104 @@
 package com.expensesplit.service;
 
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
-import com.expensesplit.model.User;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.PriorityQueue;
 
 /**
  * Algoritmo greedy de simplificacion de deudas.
  *
- * Dado el balance neto de cada usuario en un grupo, calcula el numero minimo
- * de transacciones necesarias para que todos queden a paz y salvo.
+ * <p>Dado el balance neto de cada usuario, calcula un conjunto reducido de
+ * transacciones que deja a todo el grupo a paz y salvo.
  *
- * Estrategia:
- * 1. Separar usuarios en acreedores (balance > 0) y deudores (balance < 0)
- * 2. Usar dos colas de prioridad (max-heap) ordenadas por monto absoluto
- * 3. En cada iteracion, emparejar al mayor deudor con el mayor acreedor
- * 4. Transferir el monto minimo entre ambos, actualizar balances, repetir
+ * <p>Estrategia:
+ * <ol>
+ *   <li>separar a los usuarios en acreedores (balance &gt; 0) y deudores
+ *       (balance &lt; 0)</li>
+ *   <li>mantener ambos en colas de prioridad ordenadas por importe</li>
+ *   <li>emparejar en cada paso al mayor deudor con el mayor acreedor y
+ *       transferir el minimo de ambos importes</li>
+ *   <li>devolver el resto a su cola y repetir hasta que una quede vacia</li>
+ * </ol>
+ *
+ * <p>Cada paso salda por completo al menos a uno de los dos implicados, asi
+ * que el numero de transacciones nunca supera n-1 para n participantes con
+ * saldo. Es el optimo por participante; hallar el minimo absoluto de
+ * transacciones es un problema NP-completo (equivale a particion de
+ * conjuntos), y para grupos de tamano real esta heuristica da el mismo
+ * resultado a coste lineal-logaritmico.
+ *
+ * <p>Trabaja sobre {@link UserBalance}, no sobre entidades JPA: es una
+ * funcion pura, sin acceso a base de datos ni dependencia del contexto de
+ * persistencia.
  */
 @Service
 public class DebtSimplificationService {
 
-    private static final BigDecimal EPSILON = new BigDecimal("0.01");
+    /**
+     * Umbral por debajo del cual un saldo se considera liquidado. Es medio
+     * centimo: cualquier residuo menor no es representable como un pago real.
+     */
+    private static final BigDecimal EPSILON = new BigDecimal("0.005");
 
-    public List<SettlementSuggestionResponse> simplify(Map<User, BigDecimal> netBalances) {
-        PriorityQueue<Balance> creditors = new PriorityQueue<>(
-                Comparator.comparing(Balance::amount).reversed());
-        PriorityQueue<Balance> debtors = new PriorityQueue<>(
-                Comparator.comparing(Balance::amount).reversed());
+    public List<SettlementSuggestionResponse> simplify(List<UserBalance> netBalances) {
+        // Max-heap por importe: al frente siempre el mayor acreedor y el
+        // mayor deudor, que es lo que exige la estrategia greedy.
+        Comparator<UserBalance> mayorImportePrimero =
+                Comparator.comparing(UserBalance::amount).reversed();
 
-        for (Map.Entry<User, BigDecimal> entry : netBalances.entrySet()) {
-            BigDecimal amount = entry.getValue().setScale(2, java.math.RoundingMode.HALF_UP);
+        PriorityQueue<UserBalance> acreedores = new PriorityQueue<>(mayorImportePrimero);
+        PriorityQueue<UserBalance> deudores = new PriorityQueue<>(mayorImportePrimero);
 
-            if (amount.compareTo(EPSILON) > 0) {
-                creditors.add(new Balance(entry.getKey(), amount));
-            } else if (amount.compareTo(EPSILON.negate()) < 0) {
-                debtors.add(new Balance(entry.getKey(), amount.abs()));
+        for (UserBalance balance : netBalances) {
+            if (balance.amount().compareTo(EPSILON) > 0) {
+                acreedores.add(balance);
+            } else if (balance.amount().negate().compareTo(EPSILON) > 0) {
+                // Los deudores se guardan en valor absoluto para que el
+                // comparador ordene igual en ambas colas.
+                deudores.add(enValorAbsoluto(balance));
             }
-            // si esta entre -0.01 y 0.01 se considera saldado, se ignora
+            // Entre -0.005 y 0.005 se considera saldado y se ignora.
         }
 
-        List<SettlementSuggestionResponse> settlements = new ArrayList<>();
+        List<SettlementSuggestionResponse> transacciones = new ArrayList<>();
 
-        while (!creditors.isEmpty() && !debtors.isEmpty()) {
-            Balance topCreditor = creditors.poll();
-            Balance topDebtor = debtors.poll();
+        while (!acreedores.isEmpty() && !deudores.isEmpty()) {
+            UserBalance acreedor = acreedores.poll();
+            UserBalance deudor = deudores.poll();
 
-            BigDecimal transferAmount = topCreditor.amount().min(topDebtor.amount());
+            BigDecimal importe = acreedor.amount().min(deudor.amount());
 
-            settlements.add(SettlementSuggestionResponse.builder()
-                    .fromUserId(topDebtor.user().getId())
-                    .fromUserName(topDebtor.user().getName())
-                    .toUserId(topCreditor.user().getId())
-                    .toUserName(topCreditor.user().getName())
-                    .amount(transferAmount)
+            transacciones.add(SettlementSuggestionResponse.builder()
+                    .fromUserId(deudor.userId())
+                    .fromUserName(deudor.userName())
+                    .toUserId(acreedor.userId())
+                    .toUserName(acreedor.userName())
+                    .amount(importe)
                     .build());
 
-            BigDecimal remainingCreditor = topCreditor.amount().subtract(transferAmount);
-            BigDecimal remainingDebtor = topDebtor.amount().subtract(transferAmount);
-
-            if (remainingCreditor.compareTo(EPSILON) > 0) {
-                creditors.add(new Balance(topCreditor.user(), remainingCreditor));
-            }
-            if (remainingDebtor.compareTo(EPSILON) > 0) {
-                debtors.add(new Balance(topDebtor.user(), remainingDebtor));
-            }
+            devolverSiQuedaSaldo(acreedores, acreedor, importe);
+            devolverSiQuedaSaldo(deudores, deudor, importe);
         }
 
-        return settlements;
+        return transacciones;
     }
 
-    private record Balance(User user, BigDecimal amount) {
+    private void devolverSiQuedaSaldo(PriorityQueue<UserBalance> cola,
+                                      UserBalance balance,
+                                      BigDecimal transferido) {
+        BigDecimal resto = balance.amount().subtract(transferido);
+
+        if (resto.compareTo(EPSILON) > 0) {
+            cola.add(new UserBalance(balance.userId(), balance.userName(), resto));
+        }
+    }
+
+    private UserBalance enValorAbsoluto(UserBalance balance) {
+        return new UserBalance(balance.userId(), balance.userName(), balance.amount().abs());
     }
 }

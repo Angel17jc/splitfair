@@ -16,10 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -104,13 +102,11 @@ public class ExpenseService {
     public List<BalanceResponse> getGroupBalances(Long groupId, String requesterEmail) {
         groupAccess.requireMember(groupId, requesterEmail);
 
-        Map<User, BigDecimal> balances = balanceService.calculateNetBalances(groupId);
-
-        return balances.entrySet().stream()
-                .map(e -> BalanceResponse.builder()
-                        .userId(e.getKey().getId())
-                        .userName(e.getKey().getName())
-                        .netBalance(e.getValue().setScale(2, RoundingMode.HALF_UP))
+        return balanceService.calculateNetBalances(groupId).stream()
+                .map(b -> BalanceResponse.builder()
+                        .userId(b.userId())
+                        .userName(b.userName())
+                        .netBalance(b.amount())
                         .build())
                 .toList();
     }
@@ -119,8 +115,7 @@ public class ExpenseService {
     public List<SettlementSuggestionResponse> getSuggestedSettlements(Long groupId, String requesterEmail) {
         groupAccess.requireMember(groupId, requesterEmail);
 
-        Map<User, BigDecimal> balances = balanceService.calculateNetBalances(groupId);
-        return debtSimplificationService.simplify(balances);
+        return debtSimplificationService.simplify(balanceService.calculateNetBalances(groupId));
     }
 
     private ExpenseResponse toResponse(Expense expense) {

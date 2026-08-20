@@ -1,7 +1,7 @@
 package com.expensesplit.service;
 
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
-import com.expensesplit.model.User;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -9,121 +9,160 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class DebtSimplificationServiceTest {
 
     private final DebtSimplificationService service = new DebtSimplificationService();
 
-    private User user(long id, String name) {
-        return User.builder().id(id).name(name).email(name.toLowerCase() + "@test.com").build();
+    private static UserBalance balance(long id, String nombre, String importe) {
+        return new UserBalance(id, nombre, new BigDecimal(importe));
     }
 
     @Test
-    void dosPersonas_unoLeDebeAlOtro() {
-        User a = user(1, "Ana");
-        User b = user(2, "Beto");
+    @DisplayName("Dos personas: una unica transferencia del deudor al acreedor")
+    void dosPersonas() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "Ana", "50.00"),
+                balance(2, "Beto", "-50.00")));
 
-        Map<User, BigDecimal> balances = new LinkedHashMap<>();
-        balances.put(a, new BigDecimal("50.00"));   // le deben 50
-        balances.put(b, new BigDecimal("-50.00"));  // debe 50
-
-        List<SettlementSuggestionResponse> result = service.simplify(balances);
-
-        assertEquals(1, result.size());
-        assertEquals("Beto", result.get(0).getFromUserName());
-        assertEquals("Ana", result.get(0).getToUserName());
-        assertEquals(0, new BigDecimal("50.00").compareTo(result.get(0).getAmount()));
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getFromUserName()).isEqualTo("Beto");
+        assertThat(result.get(0).getToUserName()).isEqualTo("Ana");
+        assertThat(result.get(0).getAmount()).isEqualByComparingTo("50.00");
     }
 
     @Test
-    void tresPersonas_cadenaDeudas_seSimplificaAUnaTransaccion() {
-        // A pago 90, deberia haber pagado 30 -> le deben 60
-        // B pago 0, deberia pagar 30 -> debe 30
-        // C pago 0, deberia pagar 30, pero ya le presto a B -> este caso simplificado:
-        User a = user(1, "Ana");
-        User b = user(2, "Beto");
-        User c = user(3, "Carla");
+    @DisplayName("Tres personas: dos deudores pagan a un unico acreedor")
+    void tresPersonas() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "Ana", "60.00"),
+                balance(2, "Beto", "-30.00"),
+                balance(3, "Carla", "-30.00")));
 
-        Map<User, BigDecimal> balances = new LinkedHashMap<>();
-        balances.put(a, new BigDecimal("60.00"));
-        balances.put(b, new BigDecimal("-30.00"));
-        balances.put(c, new BigDecimal("-30.00"));
-
-        List<SettlementSuggestionResponse> result = service.simplify(balances);
-
-        // Deben ser exactamente 2 transacciones: B->A y C->A
-        assertEquals(2, result.size());
-        assertTrue(result.stream().allMatch(s -> s.getToUserName().equals("Ana")));
-
-        BigDecimal total = result.stream()
-                .map(SettlementSuggestionResponse::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        assertEquals(0, new BigDecimal("60.00").compareTo(total));
+        assertThat(result).hasSize(2);
+        assertThat(result).allMatch(s -> s.getToUserName().equals("Ana"));
+        assertThat(totalTransferido(result)).isEqualByComparingTo("60.00");
     }
 
     @Test
-    void grupoYaSaldado_noGeneraTransacciones() {
-        User a = user(1, "Ana");
-        User b = user(2, "Beto");
-
-        Map<User, BigDecimal> balances = new LinkedHashMap<>();
-        balances.put(a, BigDecimal.ZERO);
-        balances.put(b, BigDecimal.ZERO);
-
-        List<SettlementSuggestionResponse> result = service.simplify(balances);
-
-        assertTrue(result.isEmpty());
+    @DisplayName("Grupo ya saldado: no se sugiere ninguna transaccion")
+    void grupoSaldado() {
+        assertThat(service.simplify(List.of(
+                balance(1, "Ana", "0.00"),
+                balance(2, "Beto", "0.00")))).isEmpty();
     }
 
     @Test
-    void unaPersonaPagoTodo_restoDebeProporcional() {
-        User a = user(1, "Ana");
-        User b = user(2, "Beto");
-        User c = user(3, "Carla");
-        User d = user(4, "Diego");
+    @DisplayName("Una persona pago todo: los demas le pagan su parte")
+    void unaPersonaPagoTodo() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "Ana", "90.00"),
+                balance(2, "Beto", "-30.00"),
+                balance(3, "Carla", "-30.00"),
+                balance(4, "Diego", "-30.00")));
 
-        // Ana pago 120 para 4 personas (30 c/u), los demas no pagaron nada
-        Map<User, BigDecimal> balances = new LinkedHashMap<>();
-        balances.put(a, new BigDecimal("90.00"));   // pago 120, le correspondia 30 -> le deben 90
-        balances.put(b, new BigDecimal("-30.00"));
-        balances.put(c, new BigDecimal("-30.00"));
-        balances.put(d, new BigDecimal("-30.00"));
-
-        List<SettlementSuggestionResponse> result = service.simplify(balances);
-
-        assertEquals(3, result.size());
-        assertTrue(result.stream().allMatch(s -> s.getToUserName().equals("Ana")));
-        assertTrue(result.stream().allMatch(s -> s.getAmount().compareTo(new BigDecimal("30.00")) == 0));
+        assertThat(result).hasSize(3);
+        assertThat(result).allMatch(s -> s.getToUserName().equals("Ana"));
+        assertThat(result).allMatch(s -> s.getAmount().compareTo(new BigDecimal("30.00")) == 0);
     }
 
     @Test
-    void cincoPersonas_balancesMixtos_todosQuedanEnCero() {
-        User a = user(1, "A");
-        User b = user(2, "B");
-        User c = user(3, "C");
-        User d = user(4, "D");
-        User e = user(5, "E");
+    @DisplayName("Cinco personas con balances mixtos: cada acreedor recibe lo suyo")
+    void cincoPersonasBalancesMixtos() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "A", "40.00"),
+                balance(2, "B", "-15.00"),
+                balance(3, "C", "25.00"),
+                balance(4, "D", "-30.00"),
+                balance(5, "E", "-20.00")));
 
-        Map<User, BigDecimal> balances = new LinkedHashMap<>();
-        balances.put(a, new BigDecimal("40.00"));
-        balances.put(b, new BigDecimal("-15.00"));
-        balances.put(c, new BigDecimal("25.00"));
-        balances.put(d, new BigDecimal("-30.00"));
-        balances.put(e, new BigDecimal("-20.00"));
+        Map<String, BigDecimal> recibido = new LinkedHashMap<>();
+        result.forEach(s -> recibido.merge(s.getToUserName(), s.getAmount(), BigDecimal::add));
 
-        List<SettlementSuggestionResponse> result = service.simplify(balances);
+        assertThat(recibido.get("A")).isEqualByComparingTo("40.00");
+        assertThat(recibido.get("C")).isEqualByComparingTo("25.00");
+        assertThat(result).hasSizeLessThanOrEqualTo(4);
+    }
 
-        // La suma de todos los pagos por acreedor debe igualar su balance positivo
-        Map<String, BigDecimal> receivedByCreditor = new LinkedHashMap<>();
-        for (SettlementSuggestionResponse s : result) {
-            receivedByCreditor.merge(s.getToUserName(), s.getAmount(), BigDecimal::add);
+    @Test
+    @DisplayName("Los miembros con balance cero se ignoran, no generan transacciones")
+    void miembrosSaldadosSeIgnoran() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "Ana", "20.00"),
+                balance(2, "Beto", "-20.00"),
+                balance(3, "Carla", "0.00"),
+                balance(4, "Diego", "0.00")));
+
+        assertThat(result).hasSize(1);
+        assertThat(result).noneMatch(s ->
+                s.getFromUserName().equals("Carla") || s.getToUserName().equals("Carla"));
+    }
+
+    @Test
+    @DisplayName("Con centimos sueltos, lo transferido cuadra con lo adeudado")
+    void centimosSueltos() {
+        // 100.00 repartido entre 3: uno asume 33.34 y dos asumen 33.33
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "Ana", "66.66"),
+                balance(2, "Beto", "-33.33"),
+                balance(3, "Carla", "-33.33")));
+
+        assertThat(totalTransferido(result)).isEqualByComparingTo("66.66");
+    }
+
+    @Test
+    @DisplayName("Invariante: nunca mas de n-1 transacciones para n participantes con saldo")
+    void nuncaSuperaNMenosUno() {
+        List<UserBalance> balances = List.of(
+                balance(1, "A", "100.00"),
+                balance(2, "B", "-25.00"),
+                balance(3, "C", "-25.00"),
+                balance(4, "D", "-25.00"),
+                balance(5, "E", "-25.00"),
+                balance(6, "F", "50.00"),
+                balance(7, "G", "-50.00"));
+
+        assertThat(service.simplify(balances)).hasSizeLessThanOrEqualTo(balances.size() - 1);
+    }
+
+    @Test
+    @DisplayName("Invariante: aplicar las transferencias deja a todos en cero")
+    void aplicarTransferenciasSaldaElGrupo() {
+        List<UserBalance> balances = List.of(
+                balance(1, "A", "40.00"),
+                balance(2, "B", "-15.00"),
+                balance(3, "C", "25.00"),
+                balance(4, "D", "-30.00"),
+                balance(5, "E", "-20.00"));
+
+        Map<Long, BigDecimal> resultante = new LinkedHashMap<>();
+        balances.forEach(b -> resultante.put(b.userId(), b.amount()));
+
+        for (SettlementSuggestionResponse t : service.simplify(balances)) {
+            // Quien paga sube su balance; quien cobra lo baja.
+            resultante.merge(t.getFromUserId(), t.getAmount(), BigDecimal::add);
+            resultante.merge(t.getToUserId(), t.getAmount().negate(), BigDecimal::add);
         }
 
-        assertEquals(0, new BigDecimal("40.00").compareTo(receivedByCreditor.get("A")));
-        assertEquals(0, new BigDecimal("25.00").compareTo(receivedByCreditor.get("C")));
+        assertThat(resultante.values()).allSatisfy(saldo ->
+                assertThat(saldo).isEqualByComparingTo(BigDecimal.ZERO));
+    }
 
-        // El numero de transacciones nunca deberia superar (numero de personas - 1)
-        assertTrue(result.size() <= 4);
+    @Test
+    @DisplayName("Invariante: ninguna transferencia sugerida es de importe negativo")
+    void sinImportesNegativos() {
+        List<SettlementSuggestionResponse> result = service.simplify(List.of(
+                balance(1, "A", "33.33"),
+                balance(2, "B", "-11.11"),
+                balance(3, "C", "-22.22")));
+
+        assertThat(result).allMatch(s -> s.getAmount().signum() > 0);
+    }
+
+    private BigDecimal totalTransferido(List<SettlementSuggestionResponse> transacciones) {
+        return transacciones.stream()
+                .map(SettlementSuggestionResponse::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

@@ -15,6 +15,13 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    # Desactivado a proposito. open-in-view mantiene la sesion de Hibernate
+    # abierta durante toda la peticion, lo que enmascara las cargas perezosas
+    # accidentales: en vez de fallar, disparan consultas silenciosas fuera de
+    # transaccion. Con la sesion cerrada, cualquier navegacion perezosa no
+    # prevista falla en desarrollo en vez de degradar el rendimiento en
+    # produccion.
+    open-in-view: false
     hibernate:
       # El esquema lo gobierna Flyway, no Hibernate. "validate" hace que la
       # aplicacion se niegue a arrancar si las entidades y las tablas han
