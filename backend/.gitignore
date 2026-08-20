@@ -1,0 +1,33 @@
+# ---- Build Maven ----
+# El wrapper (mvnw, mvnw.cmd, .mvn/wrapper/*.properties) SI se versiona
+target/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.class
+
+# ---- Configuracion local con credenciales ----
+src/main/resources/application-local.yml
+src/main/resources/application-local.properties
+src/main/resources/application-secret*.yml
+src/main/resources/application-prod.yml
+
+# ---- Spring / herramientas ----
+.springBeans
+.apt_generated/
+.factorypath
+.attach_pid*
+hs_err_pid*
+replay_pid*
+
+# ---- IDE ----
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+bin/

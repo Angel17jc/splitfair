@@ -1,0 +1,17 @@
+# Normaliza finales de linea: LF en el repo, nativo en el working dir
+* text=auto eol=lf
+
+# Scripts que deben conservar CRLF en Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.woff binary
+*.woff2 binary

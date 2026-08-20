@@ -1,0 +1,44 @@
+# ---- Secretos y variables de entorno ----
+.env
+.env.*
+!.env.example
+*.env
+secrets/
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+credentials.json
+serviceAccount*.json
+
+# ---- Sistema operativo ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Editores / IDEs ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+*.swp
+*.swo
+.eclipse/
+.settings/
+.project
+.classpath
+
+# ---- Logs y temporales ----
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# ---- Docker ----
+docker-compose.override.yml
+pgdata/
