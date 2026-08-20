@@ -1,0 +1,14 @@
+# Perfil de desarrollo. Nada de esto debe llegar a produccion:
+# el SQL en consola delata datos y el restart automatico consume memoria.
+spring:
+  jpa:
+    show-sql: true
+
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.expensesplit: DEBUG
+    org.hibernate.SQL: DEBUG

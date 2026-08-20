@@ -11,10 +11,11 @@ build/
 *.class
 
 # ---- Configuracion local con credenciales ----
+# application-dev.yml y application-prod.yml SI se versionan: no contienen
+# secretos, solo referencias a variables de entorno.
 src/main/resources/application-local.yml
 src/main/resources/application-local.properties
 src/main/resources/application-secret*.yml
-src/main/resources/application-prod.yml
 
 # ---- Spring / herramientas ----
 .springBeans

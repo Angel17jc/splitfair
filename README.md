@@ -149,6 +149,62 @@ Deberías recibir un JSON con un `token` JWT.
 
 ---
 
+## Base de datos y migraciones
+
+El esquema lo gobierna **Flyway**, no Hibernate. Los scripts viven en
+`backend/src/main/resources/db/migration/` y se aplican solos al arrancar.
+
+`spring.jpa.hibernate.ddl-auto` está en `validate`: la aplicación se niega a
+arrancar si las entidades y las tablas han divergido. Eso convierte un error
+silencioso en un fallo inmediato y visible.
+
+**Para cambiar el esquema** se añade una migración nueva (`V2__...sql`). Nunca
+se edita una ya aplicada: Flyway guarda su hash y aborta si cambia.
+
+### Conflicto de puerto en el 5432
+
+Si tienes un PostgreSQL instalado de forma nativa (en Windows es habitual, como
+servicio `postgresql-x64-NN`), ocupará el 5432 y tus conexiones irán a él en vez
+de al contenedor, con un desconcertante `password authentication failed`.
+
+Comprueba quién escucha:
+
+```bash
+netstat -ano | grep ":5432"          # Linux / Git Bash
+Get-NetTCPConnection -LocalPort 5432 # PowerShell
+```
+
+Solución: en tu `.env`, usa otro puerto para el contenedor.
+
+```env
+DB_PORT=5434
+```
+
+Solo cambia el puerto del lado del host. Dentro de Docker Compose el backend
+sigue hablando con `postgres:5432` por la red interna, así que no hay que tocar
+nada más.
+
+## Tests
+
+```bash
+cd backend
+./mvnw test
+```
+
+Los tests de integración levantan un **PostgreSQL 16 real con Testcontainers**,
+no H2. H2 acepta SQL que PostgreSQL rechaza y no implementa igual `NUMERIC` ni
+las palabras reservadas: dejaría pasar migraciones que fallan en producción.
+
+Requiere Docker en marcha. El `pom.xml` fija `docker.api.version` porque los
+daemon recientes (Docker 25+, `MinAPIVersion` 1.44) rechazan con HTTP 400 la
+versión de API que `docker-java` negocia por defecto, y Testcontainers reporta
+entonces un engañoso *"Could not find a valid Docker environment"*. Si tu Docker
+es más antiguo, ajústalo:
+
+```bash
+./mvnw test -Ddocker.api.version=1.43
+```
+
 ## Estructura del proyecto
 
 ```

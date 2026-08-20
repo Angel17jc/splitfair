@@ -1,0 +1,23 @@
+# Perfil de tests. La URL de la base la inyecta Testcontainers en tiempo de
+# ejecucion via @DynamicPropertySource, por eso no aparece aqui.
+spring:
+  jpa:
+    show-sql: false
+  flyway:
+    enabled: true
+
+# Secreto ficticio, solo para que el contexto arranque en los tests.
+# HS256 exige una clave de al menos 256 bits (32 bytes).
+jwt:
+  secret: clave-exclusiva-de-tests-no-usada-en-ningun-entorno-real-0123456789
+  expiration-ms: 3600000
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+
+logging:
+  level:
+    root: WARN
+    org.testcontainers: WARN
+    com.github.dockerjava: WARN

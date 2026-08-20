@@ -1,0 +1,15 @@
+# Perfil de produccion. Silencioso por defecto: los logs de aplicacion no
+# deben contener sentencias SQL ni parametros, porque acaban conteniendo
+# datos personales y montos.
+spring:
+  jpa:
+    show-sql: false
+
+  devtools:
+    restart:
+      enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.expensesplit: INFO
