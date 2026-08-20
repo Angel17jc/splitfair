@@ -21,6 +21,7 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final GroupAccessService groupAccess;
 
     @Transactional
     public GroupResponse createGroup(CreateGroupRequest request, String creatorEmail) {
@@ -47,7 +48,10 @@ public class GroupService {
     }
 
     @Transactional
-    public GroupResponse addMember(Long groupId, Long userId) {
+    public GroupResponse addMember(Long groupId, Long userId, String requesterEmail) {
+        // Alterar la composicion del grupo es una accion de administrador.
+        groupAccess.requireAdmin(groupId, requesterEmail);
+
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 
@@ -70,7 +74,10 @@ public class GroupService {
         return toResponse(group, members);
     }
 
-    public GroupResponse getGroup(Long groupId) {
+    @Transactional(readOnly = true)
+    public GroupResponse getGroup(Long groupId, String requesterEmail) {
+        groupAccess.requireMember(groupId, requesterEmail);
+
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 

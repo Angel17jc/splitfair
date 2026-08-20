@@ -31,9 +31,12 @@ public class ExpenseService {
     private final UserRepository userRepository;
     private final BalanceService balanceService;
     private final DebtSimplificationService debtSimplificationService;
+    private final GroupAccessService groupAccess;
 
     @Transactional
     public ExpenseResponse createExpense(Long groupId, CreateExpenseRequest request, String payerEmail) {
+        groupAccess.requireMember(groupId, payerEmail);
+
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
 
@@ -89,12 +92,18 @@ public class ExpenseService {
         return toResponse(expense);
     }
 
-    public List<ExpenseResponse> getGroupExpenses(Long groupId) {
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> getGroupExpenses(Long groupId, String requesterEmail) {
+        groupAccess.requireMember(groupId, requesterEmail);
+
         return expenseRepository.findByGroupIdOrderByExpenseDateDesc(groupId)
                 .stream().map(this::toResponse).toList();
     }
 
-    public List<BalanceResponse> getGroupBalances(Long groupId) {
+    @Transactional(readOnly = true)
+    public List<BalanceResponse> getGroupBalances(Long groupId, String requesterEmail) {
+        groupAccess.requireMember(groupId, requesterEmail);
+
         Map<User, BigDecimal> balances = balanceService.calculateNetBalances(groupId);
 
         return balances.entrySet().stream()
@@ -106,7 +115,10 @@ public class ExpenseService {
                 .toList();
     }
 
-    public List<SettlementSuggestionResponse> getSuggestedSettlements(Long groupId) {
+    @Transactional(readOnly = true)
+    public List<SettlementSuggestionResponse> getSuggestedSettlements(Long groupId, String requesterEmail) {
+        groupAccess.requireMember(groupId, requesterEmail);
+
         Map<User, BigDecimal> balances = balanceService.calculateNetBalances(groupId);
         return debtSimplificationService.simplify(balances);
     }

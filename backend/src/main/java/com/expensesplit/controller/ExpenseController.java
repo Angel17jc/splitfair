@@ -28,17 +28,20 @@ public class ExpenseController {
     }
 
     @GetMapping("/expenses")
-    public ResponseEntity<List<ExpenseResponse>> getExpenses(@PathVariable Long groupId) {
-        return ResponseEntity.ok(expenseService.getGroupExpenses(groupId));
+    public ResponseEntity<List<ExpenseResponse>> getExpenses(@PathVariable Long groupId,
+                                                               Authentication authentication) {
+        return ResponseEntity.ok(expenseService.getGroupExpenses(groupId, authentication.getName()));
     }
 
     @GetMapping("/balances")
-    public ResponseEntity<List<BalanceResponse>> getBalances(@PathVariable Long groupId) {
-        return ResponseEntity.ok(expenseService.getGroupBalances(groupId));
+    public ResponseEntity<List<BalanceResponse>> getBalances(@PathVariable Long groupId,
+                                                              Authentication authentication) {
+        return ResponseEntity.ok(expenseService.getGroupBalances(groupId, authentication.getName()));
     }
 
     @GetMapping("/settlements")
-    public ResponseEntity<List<SettlementSuggestionResponse>> getSettlements(@PathVariable Long groupId) {
-        return ResponseEntity.ok(expenseService.getSuggestedSettlements(groupId));
+    public ResponseEntity<List<SettlementSuggestionResponse>> getSettlements(@PathVariable Long groupId,
+                                                                              Authentication authentication) {
+        return ResponseEntity.ok(expenseService.getSuggestedSettlements(groupId, authentication.getName()));
     }
 }

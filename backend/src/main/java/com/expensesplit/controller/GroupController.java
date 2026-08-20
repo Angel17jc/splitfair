@@ -23,12 +23,15 @@ public class GroupController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<GroupResponse> getGroup(@PathVariable Long id) {
-        return ResponseEntity.ok(groupService.getGroup(id));
+    public ResponseEntity<GroupResponse> getGroup(@PathVariable Long id,
+                                                    Authentication authentication) {
+        return ResponseEntity.ok(groupService.getGroup(id, authentication.getName()));
     }
 
     @PostMapping("/{id}/members/{userId}")
-    public ResponseEntity<GroupResponse> addMember(@PathVariable Long id, @PathVariable Long userId) {
-        return ResponseEntity.ok(groupService.addMember(id, userId));
+    public ResponseEntity<GroupResponse> addMember(@PathVariable Long id,
+                                                     @PathVariable Long userId,
+                                                     Authentication authentication) {
+        return ResponseEntity.ok(groupService.addMember(id, userId, authentication.getName()));
     }
 }

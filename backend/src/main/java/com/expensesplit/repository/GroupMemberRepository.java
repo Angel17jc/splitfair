@@ -9,5 +9,11 @@ import java.util.Optional;
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
     List<GroupMember> findByGroupId(Long groupId);
     Optional<GroupMember> findByGroupIdAndUserId(Long groupId, Long userId);
+
+    /**
+     * Busca la pertenencia a partir del email, que es lo que viaja en el JWT.
+     * Evita tener que resolver antes el usuario en una consulta aparte.
+     */
+    Optional<GroupMember> findByGroupIdAndUserEmail(Long groupId, String email);
     boolean existsByGroupIdAndUserId(Long groupId, Long userId);
 }
