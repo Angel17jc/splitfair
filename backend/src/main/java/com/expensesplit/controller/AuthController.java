@@ -4,7 +4,10 @@ import com.expensesplit.dto.request.LoginRequest;
 import com.expensesplit.dto.request.RefreshTokenRequest;
 import com.expensesplit.dto.request.RegisterRequest;
 import com.expensesplit.dto.response.AuthResponse;
+import com.expensesplit.security.AuthRateLimiter;
+import com.expensesplit.security.RateLimitService;
 import com.expensesplit.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,15 +19,22 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final AuthRateLimiter rateLimiter;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request,
+                                   HttpServletRequest http) {
+        rateLimiter.enforce(RateLimitService.Scope.REGISTER, http, request.getEmail());
         return authService.register(request);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request,
+                                HttpServletRequest http) {
+        // Antes de cualquier comprobacion de contrasena: sin este freno, el
+        // login es fuerza bruta gratis.
+        rateLimiter.enforce(RateLimitService.Scope.LOGIN, http, request.getEmail());
         return authService.login(request);
     }
 

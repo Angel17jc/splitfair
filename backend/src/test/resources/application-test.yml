@@ -19,6 +19,15 @@ jwt:
   refresh-token-expiration-days: 30
 
 app:
+  # Cupos amplios por defecto: los tests de otras clases registran varios
+  # usuarios desde la misma IP y no deben chocar con el limitador. La clase
+  # que prueba el limite los reduce con @TestPropertySource.
+  rate-limit:
+    login-attempts: 1000
+    login-window-minutes: 1
+    register-attempts: 1000
+    register-window-minutes: 1
+
   cors:
     allowed-origins: http://localhost:5173
 

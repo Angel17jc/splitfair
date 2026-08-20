@@ -58,6 +58,14 @@ jwt:
   refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
 
 app:
+  rate-limit:
+    # Cupos por ventana deslizante, aplicados por IP y por email a la vez.
+    # El login es mas estricto: es el que se ataca por fuerza bruta.
+    login-attempts: ${RATE_LIMIT_LOGIN_ATTEMPTS:5}
+    login-window-minutes: ${RATE_LIMIT_LOGIN_WINDOW_MINUTES:15}
+    register-attempts: ${RATE_LIMIT_REGISTER_ATTEMPTS:10}
+    register-window-minutes: ${RATE_LIMIT_REGISTER_WINDOW_MINUTES:60}
+
   cors:
     # Configurable por entorno: en produccion no es localhost.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

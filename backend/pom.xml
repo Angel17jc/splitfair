@@ -26,6 +26,7 @@
              HTTP 400, de modo que Testcontainers no encuentra el entorno.
              Overridable: -Ddocker.api.version=1.43 -->
         <docker.api.version>1.44</docker.api.version>
+        <bucket4j.version>8.14.0</bucket4j.version>
     </properties>
 
     <dependencies>
@@ -101,6 +102,20 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
             <version>${mapstruct.version}</version>
+        </dependency>
+
+        <!-- Rate limiting (token bucket) -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>${bucket4j.version}</version>
+        </dependency>
+
+        <!-- Cache acotada con expiracion para los buckets: sin ella, el mapa
+             de limitadores creceria sin control con cada IP distinta -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
         </dependency>
 
         <!-- Documentación OpenAPI / Swagger -->

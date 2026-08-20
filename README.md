@@ -184,6 +184,50 @@ Solo cambia el puerto del lado del host. Dentro de Docker Compose el backend
 sigue hablando con `postgres:5432` por la red interna, así que no hay que tocar
 nada más.
 
+## Autenticación
+
+Dos credenciales con responsabilidades distintas:
+
+| | Vida | Naturaleza | Revocable |
+|---|---|---|---|
+| **Access token** | 15 min | JWT, sin estado | No |
+| **Refresh token** | 30 días | Valor opaco, con estado en BD | Sí |
+
+El access token no se puede revocar, y por eso vive poco: su validez es el
+tiempo máximo que sobrevive una credencial robada. La capacidad de cortar una
+sesión vive en el refresh token.
+
+**Rotación.** Cada refresco invalida el token presentado y emite uno nuevo
+dentro de la misma *familia*. Si alguna vez se presenta un token ya rotado,
+significa que existe una copia en circulación: se revoca la familia entera.
+No se puede distinguir a la víctima del atacante, así que se corta el acceso
+a ambos, y la víctima detecta el problema al verse obligada a entrar de nuevo
+(RFC 9700).
+
+En la base solo se guarda el SHA-256 del token, nunca el token.
+
+### Rate limiting
+
+`/api/auth/login` y `/api/auth/register` están limitados **por IP y por email
+a la vez**, porque cada dimensión cubre un ataque que la otra deja pasar: solo
+por IP, una botnet prueba miles de contraseñas contra una cuenta; solo por
+email, una sola máquina prueba una contraseña habitual contra miles de cuentas
+(*password spraying*).
+
+Configurable con `RATE_LIMIT_LOGIN_ATTEMPTS`, `RATE_LIMIT_LOGIN_WINDOW_MINUTES`
+y sus equivalentes de registro.
+
+> **Limitación conocida:** el estado vive en memoria, así que con varias
+> instancias cada una aplica su propio límite y el efectivo se multiplica por
+> el número de réplicas. Para escalar horizontalmente hay que mover los buckets
+> a Redis (`bucket4j-redis`), sin cambiar el resto del diseño.
+
+> **Detrás de un proxy inverso** hay que configurar
+> `server.forward-headers-strategy=FRAMEWORK`. La IP se toma de
+> `getRemoteAddr()` y no de `X-Forwarded-For` leída a mano: esa cabecera la
+> envía el cliente y puede falsificarse, con lo que bastaría rotarla para
+> saltarse el límite.
+
 ## Tests
 
 ```bash
