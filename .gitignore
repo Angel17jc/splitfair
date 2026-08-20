@@ -12,6 +12,12 @@ secrets/
 credentials.json
 serviceAccount*.json
 
+# ---- Memoria de trabajo local ----
+# Contexto y decisiones del proyecto para las sesiones de Claude Code.
+# Deliberadamente NO versionado: es una nota de trabajo, no documentacion
+# del repositorio. La hoja de ruta publica esta en PLAN.md, que si se sube.
+CLAUDE.md
+
 # ---- Sistema operativo ----
 .DS_Store
 Thumbs.db
