@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fase 0 pendiente de arrancar
+- **Estado:** Fase 0 **completada** (5 commits, 76 tests en verde) · siguiente: Fase 1
 
 ---
 
@@ -139,7 +139,7 @@ siguen [Conventional Commits](https://www.conventionalcommits.org/).
 
 ---
 
-### Fase 0 — Estabilización del backend
+### Fase 0 — Estabilización del backend ✅ COMPLETADA
 
 > **Por qué va primero:** los balances son el corazón del producto. Construir invitaciones y
 > UI sobre un reparto que descuadra y un acceso sin autorización significa reescribir esas
@@ -173,8 +173,23 @@ siguen [Conventional Commits](https://www.conventionalcommits.org/).
    - `handleGeneric` registra el stack trace con un `traceId` y devuelve un mensaje genérico con ese ID.
    - Formato de error unificado y documentado.
 
-**Criterio de cierre:** los splits cuadran al céntimo para cualquier combinación;
-un usuario ajeno al grupo recibe 403 en los seis endpoints; `./mvnw test` en verde.
+**Criterio de cierre:** ✅ los splits cuadran al céntimo para cualquier combinación
+(verificado sobre 500.000 repartos); un usuario ajeno recibe 403 en los seis endpoints
+(verificado por mutación); `./mvnw test` en verde con 76 tests.
+
+**Hallazgos durante la ejecución**, no previstos en el plan:
+
+- El cálculo de balances pasó de >30 consultas con 15 gastos a **5 constantes**. El test
+  lo mide con las estadísticas de Hibernate en vez de afirmarlo.
+- `open-in-view` estaba activo y enmascaraba las cargas perezosas accidentales. Desactivado.
+- El `EPSILON` del algoritmo greedy era `0.01`, con lo que un saldo de exactamente un
+  céntimo se descartaba como saldado. Ahora es `0.005`.
+- Los tests de integración no estaban aislados: al ir por HTTP no hay transacción que
+  revierta los datos. La limpieza se centralizó en la clase base.
+- Entorno: Docker 29 exige `MinAPIVersion` 1.44 y `docker-java` negocia una anterior,
+  lo que Testcontainers reporta como *"Could not find a valid Docker environment"*.
+  Fijado en el `pom.xml`. Documentado en el README junto al conflicto de puerto 5432
+  con un PostgreSQL nativo.
 
 ---
 
