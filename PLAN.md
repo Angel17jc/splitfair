@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fase 0 **completada** (5 commits, 76 tests en verde) · siguiente: Fase 1
+- **Estado:** Fases 0 y 1 **completadas** (10 commits, 120 tests en verde) · siguiente: Fase 2
 
 ---
 
@@ -193,7 +193,7 @@ siguen [Conventional Commits](https://www.conventionalcommits.org/).
 
 ---
 
-### Fase 1 — Autenticación de nivel producto
+### Fase 1 — Autenticación de nivel producto ✅ COMPLETADA
 
 > Hoy hay un único token de 24 h sin forma de revocarlo: si se filtra, el atacante entra un
 > día entero. Para usuarios reales eso no alcanza.
@@ -219,8 +219,23 @@ siguen [Conventional Commits](https://www.conventionalcommits.org/).
    - `UserController`: `GET /api/users/me`, `PATCH /api/users/me`.
    - Tests de integración con Testcontainers sobre PostgreSQL real: registro → login → refresh → logout → token revocado.
 
-**Criterio de cierre:** un refresh robado y reutilizado invalida la sesión completa;
-6 intentos fallidos de login devuelven 429.
+**Criterio de cierre:** ✅ un refresh robado y reutilizado invalida la familia completa;
+al agotar el cupo de login se devuelve 429 con `Retry-After`.
+
+**Hallazgos durante la ejecución:**
+
+- **Dos bugs encadenados en la detección de reutilización.** La revocación de la familia
+  se ejecutaba y acto seguido se lanzaba una excepción; Spring revertía la transacción al
+  propagarse, **deshaciendo la revocación**. El control de seguridad quedaba anulado por
+  el propio mecanismo transaccional, en silencio. Y `noRollbackFor` en el servicio interno
+  no bastó, porque `AuthService.refresh` también era transaccional y, siendo la externa,
+  era la suya la que decidía el rollback.
+- El límite de peticiones se aplica **por IP y por email a la vez**: cada dimensión cubre
+  un ataque que la otra deja pasar (botnet contra una cuenta vs. *password spraying*).
+- El cambio de contraseña revoca todas las sesiones: si no, un intruso conservaría un
+  refresh token válido 30 días y el cambio no serviría de nada.
+- Se apretaron las aserciones `is4xxClientError` que dejó la Fase 0: no distinguían
+  precisamente el fallo 401/403 que esta fase corrige.
 
 ---
 
