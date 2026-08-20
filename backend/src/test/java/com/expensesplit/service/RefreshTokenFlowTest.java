@@ -245,6 +245,60 @@ class RefreshTokenFlowTest extends AbstractIntegrationTest {
         }
     }
 
+    @Nested
+    @DisplayName("Recorrido completo")
+    class RecorridoCompleto {
+
+        @Test
+        @DisplayName("registro, login, uso, refresco, uso y cierre de sesion")
+        void deExtremoAExtremo() throws Exception {
+            // 1. Iniciar sesion con las credenciales del registro.
+            JsonNode sesion = json.readTree(iniciarSesion());
+            String access = sesion.get("accessToken").asText();
+            String refresh = sesion.get("refreshToken").asText();
+
+            // 2. El access token da acceso a la API.
+            long grupo = crearGrupo(access);
+            leerGrupo(access, grupo).andExpect(status().isOk());
+
+            // 3. Refrescar entrega credenciales nuevas.
+            JsonNode renovada = json.readTree(refrescar(refresh)
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString());
+            String accessNuevo = renovada.get("accessToken").asText();
+            String refreshNuevo = renovada.get("refreshToken").asText();
+
+            // 4. Las credenciales renovadas siguen dando acceso al mismo grupo.
+            leerGrupo(accessNuevo, grupo).andExpect(status().isOk());
+
+            // 5. Cerrar sesion invalida la cadena.
+            cerrarSesion(refreshNuevo).andExpect(status().isNoContent());
+            refrescar(refreshNuevo).andExpect(status().isUnauthorized());
+
+            // 6. El access token emitido antes del cierre sigue siendo valido
+            //    hasta que caduque: es sin estado y no se puede revocar. Esa
+            //    es la contrapartida aceptada al elegir 15 minutos de vida.
+            leerGrupo(accessNuevo, grupo).andExpect(status().isOk());
+        }
+
+        private long crearGrupo(String access) throws Exception {
+            String body = mvc.perform(post("/api/groups")
+                            .header("Authorization", "Bearer " + access)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"name":"Piso","description":"test"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            return json.readTree(body).get("id").asLong();
+        }
+
+        private ResultActions leerGrupo(String access, long grupo) throws Exception {
+            return mvc.perform(get("/api/groups/{id}", grupo)
+                    .header("Authorization", "Bearer " + access));
+        }
+    }
+
     // --- utilidades ---
 
     private JsonNode registrar(String nombre, String email) throws Exception {
