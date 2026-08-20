@@ -5,7 +5,7 @@ App full stack para gestionar gastos compartidos entre grupos de personas (roomm
 ## Stack
 
 - **Backend:** Java 21, Spring Boot 3, Spring Data JPA, Spring Security + JWT, PostgreSQL, Maven, Lombok
-- **Frontend:** React 18 + Vite, TypeScript, TailwindCSS, React Query, React Router
+- **Frontend:** React 18 + Vite 8, TypeScript, TailwindCSS, React Query, React Router 7
 - **Infra:** Docker + Docker Compose
 
 ---
@@ -54,14 +54,17 @@ Verifica:
 mvn -version
 ```
 
-> Nota: si prefieres no instalar Maven globalmente, puedes generar el Maven Wrapper (`mvnw`) ejecutando `mvn -N wrapper:wrapper` dentro de `backend/` una vez tengas Maven instalado una sola vez, o simplemente usa `mvn` directamente como se indica abajo.
+> Nota: el repo ya incluye el **Maven Wrapper**, asi que no necesitas instalar Maven globalmente.
+> Desde `backend/` usa `./mvnw` (Linux/Mac) o `mvnw.cmd` (Windows) en lugar de `mvn`.
 
-### 3. Node.js 20+ y npm
+### 3. Node.js 22 LTS o superior, y npm
+
+Vite 8 requiere Node `^20.19.0 || >=22.12.0`. Recomendado: Node 22 LTS.
 
 Descarga desde https://nodejs.org/ (elige la versión LTS) o usa un gestor de versiones como `nvm`:
 ```bash
-nvm install 20
-nvm use 20
+nvm install 22
+nvm use 22
 ```
 
 Verifica:
@@ -189,4 +192,3 @@ splitwise-clone/
 - ⬜ Categorías de gastos y filtros
 - ⬜ Tests de integración del backend
 
-Para continuar, puedes pedirle a tu agente que implemente estas piezas una por una, siguiendo la estructura y convenciones ya establecidas en el proyecto.
