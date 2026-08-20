@@ -57,7 +57,7 @@ class BalanceCalculationTest extends AbstractIntegrationTest {
     @BeforeEach
     void prepararGrupoDeTres() throws Exception {
         JsonNode ana = registrar("Ana", "ana@test.com");
-        tokenAna = ana.get("token").asText();
+        tokenAna = ana.get("accessToken").asText();
         idAna = ana.get("userId").asLong();
         idBeto = registrar("Beto", "beto@test.com").get("userId").asLong();
         idCarla = registrar("Carla", "carla@test.com").get("userId").asLong();
@@ -188,7 +188,7 @@ class BalanceCalculationTest extends AbstractIntegrationTest {
                         .content("""
                                 {"name":"%s","email":"%s","password":"password123"}
                                 """.formatted(nombre, email)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return json.readTree(body);
     }

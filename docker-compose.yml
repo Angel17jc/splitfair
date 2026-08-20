@@ -32,7 +32,8 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en tu archivo .env}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en tu archivo .env}
-      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-30}
     ports:
       - "8080:8080"
 

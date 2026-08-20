@@ -15,7 +15,8 @@ spring:
 # HS256 exige una clave de al menos 256 bits (32 bytes).
 jwt:
   secret: clave-exclusiva-de-tests-no-usada-en-ningun-entorno-real-0123456789
-  expiration-ms: 3600000
+  access-token-expiration-ms: 900000
+  refresh-token-expiration-days: 30
 
 app:
   cors:

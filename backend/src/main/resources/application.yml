@@ -46,8 +46,16 @@ spring:
     validate-on-migrate: true
 
 jwt:
-  secret: ${JWT_SECRET}   # obligatorio: sin default para no filtrar un secreto en el repo
-  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  # Obligatorio y sin valor por defecto, para no versionar un secreto.
+  # Minimo 32 bytes: se valida al arrancar, no en la primera peticion.
+  secret: ${JWT_SECRET}
+
+  # Ventana corta a proposito: el access token no se puede revocar, asi que
+  # su validez es el tiempo maximo que sobrevive una credencial robada.
+  access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}      # 15 minutos
+
+  # El refresh token si es revocable, de ahi que pueda durar mucho mas.
+  refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
 
 app:
   cors:

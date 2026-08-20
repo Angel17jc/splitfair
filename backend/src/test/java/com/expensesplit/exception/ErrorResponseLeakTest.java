@@ -1,13 +1,13 @@
 package com.expensesplit.exception;
 
 import com.expensesplit.AbstractIntegrationTest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +41,7 @@ class ErrorResponseLeakTest extends AbstractIntegrationTest {
     private MockMvc mvc;
 
     @Autowired
-    private JdbcTemplate jdbc;
+    private ObjectMapper json;
 
     private String token;
 
@@ -52,10 +52,10 @@ class ErrorResponseLeakTest extends AbstractIntegrationTest {
                         .content("""
                                 {"name":"Ana","email":"ana@test.com","password":"password123"}
                                 """))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
-        token = body.replaceAll(".*\"token\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+        token = json.readTree(body).get("accessToken").asText();
     }
 
     @Test

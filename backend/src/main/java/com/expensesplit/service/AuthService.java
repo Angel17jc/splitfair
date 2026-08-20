@@ -10,9 +10,9 @@ import com.expensesplit.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,36 +22,81 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        String email = normalizeEmail(request.getEmail());
+
+        if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("Ya existe una cuenta con ese email");
         }
 
-        User user = User.builder()
-                .name(request.getName())
-                .email(request.getEmail())
+        User user = userRepository.save(User.builder()
+                .name(request.getName().trim())
+                .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .build();
+                .build());
 
-        userRepository.save(user);
-
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                user.getEmail(), null, java.util.Collections.emptyList());
-        String token = jwtTokenProvider.generateToken(authentication);
-
-        return new AuthResponse(token, user.getId(), user.getName(), user.getEmail());
+        return issueCredentials(user);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        String email = normalizeEmail(request.getEmail());
 
-        String token = jwtTokenProvider.generateToken(authentication);
+        // Delega en Spring Security: comprueba la contrasena con el mismo
+        // encoder del registro y lanza AuthenticationException si falla.
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, request.getPassword()));
 
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
 
-        return new AuthResponse(token, user.getId(), user.getName(), user.getEmail());
+        return issueCredentials(user);
+    }
+
+    /**
+     * Cambia un refresh token por un par de credenciales nuevo. El token
+     * presentado queda invalidado en el acto.
+     *
+     * <p>Sin @Transactional a proposito: la rotacion ya es atomica dentro de
+     * RefreshTokenService. Abrir aqui una transaccion externa haria que fuera
+     * ESTA la que decide el rollback, anulando el noRollbackFor de la interna
+     * y deshaciendo la revocacion por reutilizacion.
+     */
+    public AuthResponse refresh(String refreshToken) {
+        RefreshTokenService.RotationResult rotacion = refreshTokenService.rotate(refreshToken);
+
+        return buildResponse(rotacion.user(), rotacion.refreshToken());
+    }
+
+    /** Cierra la sesion revocando la familia completa de tokens. */
+    public void logout(String refreshToken) {
+        refreshTokenService.revokeSession(refreshToken);
+    }
+
+    private AuthResponse issueCredentials(User user) {
+        return buildResponse(user, refreshTokenService.issue(user));
+    }
+
+    private AuthResponse buildResponse(User user, String refreshToken) {
+        return AuthResponse.builder()
+                .accessToken(jwtTokenProvider.generateAccessToken(user.getEmail()))
+                .refreshToken(refreshToken)
+                .expiresIn(jwtTokenProvider.getAccessTokenExpirationSeconds())
+                .userId(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .build();
+    }
+
+    /**
+     * Los emails se guardan y comparan en minusculas. Sin esto,
+     * "Ana@test.com" y "ana@test.com" crearian dos cuentas distintas pese a
+     * ser la misma direccion, y la restriccion UNIQUE no lo impediria.
+     */
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase();
     }
 }

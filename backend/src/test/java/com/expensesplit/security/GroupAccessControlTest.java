@@ -58,15 +58,15 @@ class GroupAccessControlTest extends AbstractIntegrationTest {
     @BeforeEach
     void prepararEscenario() throws Exception {
         JsonNode ana = registrar("Ana", "ana@test.com");
-        tokenAna = ana.get("token").asText();
+        tokenAna = ana.get("accessToken").asText();
         idAna = ana.get("userId").asLong();
 
         JsonNode beto = registrar("Beto", "beto@test.com");
-        tokenBeto = beto.get("token").asText();
+        tokenBeto = beto.get("accessToken").asText();
         idBeto = beto.get("userId").asLong();
 
         JsonNode mallory = registrar("Mallory", "mallory@test.com");
-        tokenMallory = mallory.get("token").asText();
+        tokenMallory = mallory.get("accessToken").asText();
 
         grupoDeAna = crearGrupo(tokenAna, "Piso de Ana");
         anadirMiembro(tokenAna, grupoDeAna, idBeto);
@@ -228,7 +228,7 @@ class GroupAccessControlTest extends AbstractIntegrationTest {
                         .content("""
                                 {"name":"%s","email":"%s","password":"password123"}
                                 """.formatted(nombre, email)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
         return json.readTree(body);
