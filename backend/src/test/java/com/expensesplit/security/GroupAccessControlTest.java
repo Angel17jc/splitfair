@@ -57,11 +57,6 @@ class GroupAccessControlTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void prepararEscenario() throws Exception {
-        // Cada test parte de una base limpia: al ir por HTTP no hay
-        // transaccion de test que revierta los datos automaticamente.
-        jdbc.execute("TRUNCATE expense_splits, expenses, settlements, " +
-                "group_members, groups, users RESTART IDENTITY CASCADE");
-
         JsonNode ana = registrar("Ana", "ana@test.com");
         tokenAna = ana.get("token").asText();
         idAna = ana.get("userId").asLong();

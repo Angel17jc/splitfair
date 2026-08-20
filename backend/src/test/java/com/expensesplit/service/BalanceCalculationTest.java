@@ -56,9 +56,6 @@ class BalanceCalculationTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void prepararGrupoDeTres() throws Exception {
-        jdbc.execute("TRUNCATE expense_splits, expenses, settlements, " +
-                "group_members, groups, users RESTART IDENTITY CASCADE");
-
         JsonNode ana = registrar("Ana", "ana@test.com");
         tokenAna = ana.get("token").asText();
         idAna = ana.get("userId").asLong();

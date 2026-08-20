@@ -1,6 +1,9 @@
 package com.expensesplit;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -31,6 +34,27 @@ public abstract class AbstractIntegrationTest {
 
     static {
         POSTGRES.start();
+    }
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    /**
+     * Cada test arranca con la base vacia.
+     *
+     * <p>Los tests que van por HTTP no pueden apoyarse en la reversion
+     * automatica de @Transactional: la peticion se atiende en su propia
+     * transaccion, que confirma antes de que el test termine. Sin esta
+     * limpieza los datos se acumulan entre clases y aparecen fallos que
+     * dependen del orden de ejecucion.
+     *
+     * <p>Se ejecuta antes que el @BeforeEach de las subclases, de modo que
+     * estas pueden preparar su escenario sobre una base ya limpia.
+     */
+    @BeforeEach
+    void limpiarBaseDeDatos() {
+        jdbcTemplate.execute("TRUNCATE expense_splits, expenses, settlements, " +
+                "group_members, groups, users RESTART IDENTITY CASCADE");
     }
 
     @DynamicPropertySource
