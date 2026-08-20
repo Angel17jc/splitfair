@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -65,14 +66,20 @@ public class ExpenseService {
                 .expenseDate(request.getExpenseDate())
                 .build();
 
-        BigDecimal share = request.getAmount()
-                .divide(BigDecimal.valueOf(participants.size()), 2, RoundingMode.HALF_UP);
+        // Los participantes se ordenan por id para que el reparto del centimo
+        // sobrante sea estable: recalcular el mismo gasto no debe cambiar a
+        // quien le toca pagar de mas.
+        List<User> ordered = participants.stream()
+                .sorted(Comparator.comparing(User::getId))
+                .toList();
 
-        for (User participant : participants) {
+        List<BigDecimal> shares = MoneySplitter.splitEqually(request.getAmount(), ordered.size());
+
+        for (int i = 0; i < ordered.size(); i++) {
             ExpenseSplit split = ExpenseSplit.builder()
                     .expense(expense)
-                    .user(participant)
-                    .amountOwed(share)
+                    .user(ordered.get(i))
+                    .amountOwed(shares.get(i))
                     .build();
             expense.getSplits().add(split);
         }
