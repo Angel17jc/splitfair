@@ -241,7 +241,7 @@ class RefreshTokenFlowTest extends AbstractIntegrationTest {
         void elRefreshTokenNoAutorizaPeticiones() throws Exception {
             mvc.perform(get("/api/groups/1")
                             .header("Authorization", "Bearer " + credenciales.get("refreshToken").asText()))
-                    .andExpect(status().is4xxClientError());
+                    .andExpect(status().isUnauthorized());
         }
     }
 

@@ -201,18 +201,18 @@ class GroupAccessControlTest extends AbstractIntegrationTest {
         }
 
         @Test
-        @DisplayName("sin token no se llega siquiera al control de pertenencia")
+        @DisplayName("sin token se responde 401, no 403: no se sabe quien pregunta")
         void sinToken() throws Exception {
             mvc.perform(get("/api/groups/{id}", grupoDeAna))
-                    .andExpect(status().is4xxClientError());
+                    .andExpect(status().isUnauthorized());
         }
 
         @Test
-        @DisplayName("con un token manipulado tampoco")
+        @DisplayName("con un token manipulado tambien 401")
         void tokenInvalido() throws Exception {
             mvc.perform(get("/api/groups/{id}", grupoDeAna)
                             .header("Authorization", "Bearer no.es.un.token"))
-                    .andExpect(status().is4xxClientError());
+                    .andExpect(status().isUnauthorized());
         }
     }
 
