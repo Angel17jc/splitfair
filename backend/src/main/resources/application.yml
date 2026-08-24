@@ -58,6 +58,12 @@ jwt:
   refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
 
 app:
+  # URL publica del frontend: se usa para construir los links de invitacion.
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+
+  invitations:
+    expiration-days: ${INVITATION_EXPIRATION_DAYS:7}
+
   rate-limit:
     # Cupos por ventana deslizante, aplicados por IP y por email a la vez.
     # El login es mas estricto: es el que se ataca por fuerza bruta.

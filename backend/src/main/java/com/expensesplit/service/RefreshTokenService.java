@@ -3,6 +3,7 @@ package com.expensesplit.service;
 import com.expensesplit.model.RefreshToken;
 import com.expensesplit.model.User;
 import com.expensesplit.repository.RefreshTokenRepository;
+import com.expensesplit.security.SecureTokens;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,14 +11,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.UUID;
 
 /**
@@ -54,12 +49,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    /** 32 bytes = 256 bits de entropia. */
-    private static final int TOKEN_BYTES = 32;
-
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
-
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${jwt.refresh-token-expiration-days}")
@@ -86,7 +75,7 @@ public class RefreshTokenService {
     public RotationResult rotate(String presentedToken) {
         Instant now = Instant.now();
 
-        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash(presentedToken))
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(SecureTokens.hash(presentedToken))
                 .orElseThrow(() -> new BadCredentialsException("Token de refresco invalido"));
 
         if (stored.isRevoked()) {
@@ -129,7 +118,7 @@ public class RefreshTokenService {
      */
     @Transactional
     public void revokeSession(String presentedToken) {
-        refreshTokenRepository.findByTokenHash(hash(presentedToken))
+        refreshTokenRepository.findByTokenHash(SecureTokens.hash(presentedToken))
                 .ifPresent(token -> refreshTokenRepository.revokeFamily(
                         token.getFamilyId(), Instant.now()));
     }
@@ -150,35 +139,18 @@ public class RefreshTokenService {
     }
 
     private String persist(User user, UUID familyId) {
-        String token = generateToken();
+        String token = SecureTokens.generate();
         Instant now = Instant.now();
 
         refreshTokenRepository.save(RefreshToken.builder()
                 .user(user)
-                .tokenHash(hash(token))
+                .tokenHash(SecureTokens.hash(token))
                 .familyId(familyId)
                 .issuedAt(now)
                 .expiresAt(now.plus(Duration.ofDays(refreshExpirationDays)))
                 .build());
 
         return token;
-    }
-
-    private String generateToken() {
-        byte[] bytes = new byte[TOKEN_BYTES];
-        RANDOM.nextBytes(bytes);
-        return ENCODER.encodeToString(bytes);
-    }
-
-    private String hash(String token) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            // SHA-256 es obligatorio en toda JVM; si falta, el entorno esta roto.
-            throw new IllegalStateException("SHA-256 no disponible en esta JVM", e);
-        }
     }
 
     /** Usuario y token nuevo resultantes de una rotacion. */

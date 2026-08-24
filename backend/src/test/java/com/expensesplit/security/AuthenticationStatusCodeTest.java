@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,11 +28,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * reintentando el refresco en bucle contra un recurso al que simplemente no
  * tiene derecho.
  *
- * <p>El access token caduca en 1 segundo en esta clase, para poder probar el
- * caso "caducado" sin esperar.
+ * <p>El caso del token caducado vive en {@link AccessTokenExpiryTest}: exige
+ * un tiempo de vida de un segundo, y aplicarlo a toda esta clase volvia
+ * sensibles al reloj a tests que no tienen nada que ver con la caducidad.
  */
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "jwt.access-token-expiration-ms=1000")
 class AuthenticationStatusCodeTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -110,20 +109,6 @@ class AuthenticationStatusCodeTest extends AbstractIntegrationTest {
                     .andExpect(status().isUnauthorized());
         }
 
-        @Test
-        @DisplayName("un token caducado se distingue de uno invalido")
-        void tokenCaducado() throws Exception {
-            // El token de esta clase vive 1 segundo.
-            Thread.sleep(1100);
-
-            mvc.perform(get("/api/groups/1").header("Authorization", "Bearer " + accessToken))
-                    .andExpect(status().isUnauthorized())
-                    .andExpect(jsonPath("$.message").value("El token de acceso ha caducado"))
-                    // El cliente necesita saber que basta con refrescar: es
-                    // una situacion normal, no un intento de manipulacion.
-                    .andExpect(header().string("WWW-Authenticate",
-                            "Bearer error=\"invalid_token\", error_description=\"The access token expired\""));
-        }
     }
 
     @Nested

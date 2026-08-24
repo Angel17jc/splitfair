@@ -19,6 +19,10 @@ jwt:
   refresh-token-expiration-days: 30
 
 app:
+  frontend-base-url: http://localhost:5173
+  invitations:
+    expiration-days: 7
+
   # Cupos amplios por defecto: los tests de otras clases registran varios
   # usuarios desde la misma IP y no deben chocar con el limitador. La clase
   # que prueba el limite los reduce con @TestPropertySource.

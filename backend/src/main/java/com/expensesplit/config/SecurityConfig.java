@@ -6,6 +6,7 @@ import com.expensesplit.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -54,6 +55,11 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // Solo la vista previa de una invitacion es publica: quien
+                // abre el link puede no tener cuenta todavia. Se acota al
+                // metodo GET para no abrir de paso el resto de operaciones
+                // sobre invitaciones.
+                .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
                 .anyRequest().authenticated()
             )
             // Sin esto, los fallos que ocurren en la cadena de filtros salen
