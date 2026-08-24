@@ -2,14 +2,18 @@ package com.expensesplit.service;
 
 import com.expensesplit.dto.request.CreateInvitationRequest;
 import com.expensesplit.dto.response.InvitationPreviewResponse;
+import com.expensesplit.dto.response.GroupResponse;
 import com.expensesplit.dto.response.InvitationResponse;
 import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ResourceNotFoundException;
 import com.expensesplit.model.Group;
 import com.expensesplit.model.GroupMember;
+import com.expensesplit.model.GroupRole;
 import com.expensesplit.model.Invitation;
+import com.expensesplit.model.User;
 import com.expensesplit.repository.GroupMemberRepository;
 import com.expensesplit.repository.InvitationRepository;
+import com.expensesplit.repository.UserRepository;
 import com.expensesplit.security.SecureTokens;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +48,9 @@ public class InvitationService {
 
     private final InvitationRepository invitationRepository;
     private final GroupMemberRepository groupMemberRepository;
+    private final UserRepository userRepository;
     private final GroupAccessService groupAccess;
+    private final GroupService groupService;
 
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
@@ -116,6 +122,68 @@ public class InvitationService {
                 .expiresAt(invitation.getExpiresAt())
                 .valid(invitation.isUsable(Instant.now()))
                 .build();
+    }
+
+    /**
+     * Incorpora al usuario al grupo y consume la invitacion.
+     *
+     * @return el grupo al que se acaba de unir
+     */
+    @Transactional
+    public Group accept(String token, String userEmail) {
+        Invitation invitation = buscar(token);
+        Instant now = Instant.now();
+
+        if (invitation.isAccepted()) {
+            throw new BadRequestException("Esta invitacion ya se ha utilizado");
+        }
+        if (invitation.isExpired(now)) {
+            throw new BadRequestException("Esta invitacion ha caducado");
+        }
+        if (!invitation.acceptableBy(userEmail)) {
+            // Mensaje deliberadamente parco: no se confirma a que direccion
+            // iba dirigida, que seria filtrar el email de un tercero a quien
+            // solo tiene el link.
+            throw new BadRequestException("Esta invitacion no esta dirigida a tu cuenta");
+        }
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        Long groupId = invitation.getGroup().getId();
+
+        if (groupMemberRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+            throw new BadRequestException("Ya perteneces a este grupo");
+        }
+
+        groupMemberRepository.save(GroupMember.builder()
+                .group(invitation.getGroup())
+                .user(user)
+                .role(GroupRole.MEMBER)
+                .build());
+
+        // Consumida: de un solo uso.
+        invitation.setAcceptedAt(now);
+        invitation.setAcceptedBy(user);
+        invitationRepository.save(invitation);
+
+        log.info("Usuario {} se unio al grupo {} mediante la invitacion {}",
+                user.getId(), groupId, invitation.getId());
+
+        return invitation.getGroup();
+    }
+
+    /**
+     * Acepta la invitacion y devuelve el grupo resultante.
+     *
+     * <p>Todo dentro de la misma transaccion: si el montaje de la respuesta
+     * fallara, la incorporacion no debe quedar a medias con la invitacion ya
+     * consumida.
+     */
+    @Transactional
+    public GroupResponse acceptAndDescribe(String token, String userEmail) {
+        Group group = accept(token, userEmail);
+        return groupService.getGroup(group.getId(), userEmail);
     }
 
     /**

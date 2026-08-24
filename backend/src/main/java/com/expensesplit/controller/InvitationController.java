@@ -2,6 +2,7 @@ package com.expensesplit.controller;
 
 import com.expensesplit.dto.request.CreateInvitationRequest;
 import com.expensesplit.dto.response.InvitationPreviewResponse;
+import com.expensesplit.dto.response.GroupResponse;
 import com.expensesplit.dto.response.InvitationResponse;
 import com.expensesplit.service.InvitationService;
 import jakarta.validation.Valid;
@@ -30,6 +31,17 @@ public class InvitationController {
         return invitationService.create(groupId,
                 request != null ? request : new CreateInvitationRequest(),
                 authentication.getName());
+    }
+
+    /**
+     * Acepta la invitacion e incorpora al usuario autenticado al grupo.
+     *
+     * <p>Devuelve el grupo para que el cliente pueda llevar directamente a
+     * su pantalla, sin una segunda peticion.
+     */
+    @PostMapping("/api/invitations/{token}/accept")
+    public GroupResponse accept(@PathVariable String token, Authentication authentication) {
+        return invitationService.acceptAndDescribe(token, authentication.getName());
     }
 
     /**

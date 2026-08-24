@@ -1,5 +1,6 @@
 package com.expensesplit.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +13,7 @@ import lombok.Data;
  */
 @Data
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 @AllArgsConstructor
 public class AuthResponse {
 
@@ -25,4 +27,10 @@ public class AuthResponse {
     private Long userId;
     private String name;
     private String email;
+
+    /**
+     * Grupo al que se ha unido el usuario si el registro traia un token de
+     * invitacion. Se omite del JSON cuando es null, que es el caso habitual.
+     */
+    private Long joinedGroupId;
 }

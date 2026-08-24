@@ -23,6 +23,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenService refreshTokenService;
+    private final InvitationService invitationService;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -38,7 +39,25 @@ public class AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build());
 
-        return issueCredentials(user);
+        Long joinedGroupId = aceptarInvitacionSiLaHay(request.getInvitationToken(), email);
+
+        return issueCredentials(user, joinedGroupId);
+    }
+
+    /**
+     * Consume el token de invitacion, si el registro traia uno.
+     *
+     * <p>Ocurre dentro de la transaccion del registro a proposito. Si la
+     * invitacion resulta invalida, caducada o dirigida a otra direccion, se
+     * revierte tambien la creacion de la cuenta: es preferible que el usuario
+     * repita el registro a dejarlo con una cuenta creada, fuera del grupo al
+     * que le invitaron y sin entender por que.
+     */
+    private Long aceptarInvitacionSiLaHay(String invitationToken, String email) {
+        if (invitationToken == null || invitationToken.isBlank()) {
+            return null;
+        }
+        return invitationService.accept(invitationToken, email).getId();
     }
 
     @Transactional
@@ -77,10 +96,18 @@ public class AuthService {
     }
 
     private AuthResponse issueCredentials(User user) {
-        return buildResponse(user, refreshTokenService.issue(user));
+        return issueCredentials(user, null);
+    }
+
+    private AuthResponse issueCredentials(User user, Long joinedGroupId) {
+        return buildResponse(user, refreshTokenService.issue(user), joinedGroupId);
     }
 
     private AuthResponse buildResponse(User user, String refreshToken) {
+        return buildResponse(user, refreshToken, null);
+    }
+
+    private AuthResponse buildResponse(User user, String refreshToken, Long joinedGroupId) {
         return AuthResponse.builder()
                 .accessToken(jwtTokenProvider.generateAccessToken(user.getEmail()))
                 .refreshToken(refreshToken)
@@ -88,6 +115,7 @@ public class AuthService {
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
+                .joinedGroupId(joinedGroupId)
                 .build();
     }
 
