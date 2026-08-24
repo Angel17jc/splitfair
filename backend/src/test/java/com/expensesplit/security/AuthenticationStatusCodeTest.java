@@ -84,11 +84,22 @@ class AuthenticationStatusCodeTest extends AbstractIntegrationTest {
         @Test
         @DisplayName("con la firma alterada")
         void firmaAlterada() throws Exception {
-            // Se cambia el ultimo caracter de la firma.
-            String alterado = accessToken.substring(0, accessToken.length() - 1)
-                    + (accessToken.endsWith("A") ? "B" : "A");
+            // Se altera el PRIMER caracter de la firma, no el ultimo.
+            //
+            // La firma HMAC-SHA256 son 32 bytes, que en base64url ocupan 43
+            // caracteres: 43 x 6 = 258 bits para 256 utiles. Los dos ultimos
+            // bits se ignoran al decodificar, de modo que cambiar el ultimo
+            // caracter puede producir exactamente los mismos 32 bytes y dejar
+            // el token perfectamente valido. El primer caracter siempre
+            // aporta bits significativos.
+            int inicioFirma = accessToken.lastIndexOf('.') + 1;
+            char inicial = accessToken.charAt(inicioFirma);
+            String alterado = accessToken.substring(0, inicioFirma)
+                    + (inicial == 'A' ? 'B' : 'A')
+                    + accessToken.substring(inicioFirma + 1);
 
-            mvc.perform(get("/api/groups/1").header("Authorization", "Bearer " + alterado))
+            mvc.perform(get("/api/groups/1")
+                            .header("Authorization", "Bearer " + alterado))
                     .andExpect(status().isUnauthorized());
         }
 

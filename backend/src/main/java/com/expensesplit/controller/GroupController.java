@@ -2,9 +2,13 @@ package com.expensesplit.controller;
 
 import com.expensesplit.dto.request.CreateGroupRequest;
 import com.expensesplit.dto.response.GroupResponse;
+import com.expensesplit.dto.response.GroupSummaryResponse;
+import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.service.GroupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +18,34 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class GroupController {
 
+    /**
+     * Tope del tamano de pagina. Un parametro sin limite permitiria pedir
+     * cien mil grupos en una peticion y convertir el endpoint en una via de
+     * denegacion de servicio.
+     */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final GroupService groupService;
+
+    /**
+     * Grupos a los que pertenece el usuario autenticado.
+     *
+     * <p>No hay parametro de orden: se devuelven del mas reciente al mas
+     * antiguo. Permitir ordenar por un campo arbitrario abriria la puerta a
+     * ordenaciones sin indice sobre tablas que crecen.
+     */
+    @GetMapping
+    public PagedResponse<GroupSummaryResponse> listMyGroups(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+
+        Pageable pageable = PageRequest.of(
+                Math.max(0, page),
+                Math.clamp(size, 1, MAX_PAGE_SIZE));
+
+        return groupService.listMyGroups(authentication.getName(), pageable);
+    }
 
     @PostMapping
     public ResponseEntity<GroupResponse> createGroup(@Valid @RequestBody CreateGroupRequest request,

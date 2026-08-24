@@ -1,12 +1,14 @@
 package com.expensesplit.repository;
 
 import com.expensesplit.model.Expense;
+import com.expensesplit.repository.projection.GroupAmount;
 import com.expensesplit.repository.projection.UserAmount;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
@@ -31,4 +33,18 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             GROUP BY e.paidBy.id
             """)
     List<UserAmount> sumPaidByUser(@Param("groupId") Long groupId);
+
+    /**
+     * Total desembolsado por un usuario en cada uno de sus grupos, en una
+     * sola consulta. Es lo que evita que el listado de grupos dispare una
+     * agregacion por fila.
+     */
+    @Query("""
+            SELECT new com.expensesplit.repository.projection.GroupAmount(e.group.id, SUM(e.amount))
+            FROM Expense e
+            WHERE e.paidBy.id = :userId AND e.group.id IN :groupIds
+            GROUP BY e.group.id
+            """)
+    List<GroupAmount> sumPaidByUserPerGroup(@Param("userId") Long userId,
+                                            @Param("groupIds") Collection<Long> groupIds);
 }
