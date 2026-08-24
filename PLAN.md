@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0 y 1 **completadas** (10 commits, 120 tests en verde) · siguiente: Fase 2
+- **Estado:** Fases 0, 1 y 2 **completadas** (15 commits, 188 tests en verde) · siguiente: Fase 3
 
 ---
 
@@ -239,7 +239,7 @@ al agotar el cupo de login se devuelve 429 con `Retry-After`.
 
 ---
 
-### Fase 2 — Grupos, miembros e invitaciones
+### Fase 2 — Grupos, miembros e invitaciones ✅ COMPLETADA
 
 **Commits (5)**
 
@@ -265,8 +265,24 @@ al agotar el cupo de login se devuelve 429 con `Retry-After`.
    - `DELETE /api/groups/{id}/members/{userId}`.
    - **Regla de negocio:** no se puede salir ni expulsar a alguien con balance distinto de cero. Si no, la deuda desaparece del sistema.
 
-**Criterio de cierre:** un usuario nuevo llega por link, se registra y queda dentro del grupo;
-un miembro con deuda pendiente no puede salir.
+**Criterio de cierre:** ✅ un usuario nuevo llega por link, se registra y queda dentro del grupo
+en una sola petición; un miembro con deuda pendiente no puede salir.
+
+**Hallazgos durante la ejecución:**
+
+- **La regla "no salir con deuda" se demostró, no se supuso.** Un test se salta la validación
+  borrando la pertenencia por SQL y comprueba que la suma de balances pasa de `0.00` a `30.00`:
+  treinta euros desaparecidos. Es la prueba empírica de por qué la regla existe.
+- **El registro con invitación va en una sola petición por atomicidad**, no por comodidad: con
+  dos llamadas, un fallo entre ambas deja al usuario registrado y fuera del grupo.
+- `GET /api/groups` resuelve el balance de todos los grupos de la página con **dos agregaciones**:
+  5 consultas para 12 grupos, medidas con las estadísticas de Hibernate.
+- Se extrajo `SecureTokens`: la generación y el hasheo estaban a punto de duplicarse entre
+  refresh tokens e invitaciones.
+- **Dos tests frágiles de fases anteriores, corregidos.** Uno alteraba el *último* carácter de la
+  firma JWT, que en base64url puede no cambiar los bytes decodificados (43 caracteres = 258 bits
+  para 256 útiles). Otro fijaba un token de 1 segundo a nivel de clase, volviendo sensibles al
+  reloj a todos los tests de esa clase.
 
 ---
 
