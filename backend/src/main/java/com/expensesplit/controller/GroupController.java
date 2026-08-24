@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -80,6 +81,21 @@ public class GroupController {
                                                             Authentication authentication) {
         return ResponseEntity.ok(groupService.changeMemberRole(
                 id, userId, request.getRole(), authentication.getName()));
+    }
+
+    /**
+     * Saca a un miembro del grupo: uno mismo (salir) o a un tercero
+     * (expulsar, solo administradores).
+     *
+     * <p>Se rechaza si esa persona tiene saldo pendiente: su deuda
+     * desapareceria del sistema.
+     */
+    @DeleteMapping("/{id}/members/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeMember(@PathVariable Long id,
+                               @PathVariable Long userId,
+                               Authentication authentication) {
+        groupService.removeMember(id, userId, authentication.getName());
     }
 
     @PostMapping("/{id}/members/{userId}")

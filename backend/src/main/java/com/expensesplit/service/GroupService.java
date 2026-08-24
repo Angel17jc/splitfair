@@ -4,6 +4,7 @@ import com.expensesplit.dto.request.CreateGroupRequest;
 import com.expensesplit.dto.request.UpdateGroupRequest;
 import com.expensesplit.dto.response.GroupResponse;
 import com.expensesplit.exception.BadRequestException;
+import com.expensesplit.exception.ForbiddenException;
 import com.expensesplit.exception.ResourceNotFoundException;
 import com.expensesplit.model.*;
 import com.expensesplit.dto.response.GroupSummaryResponse;
@@ -18,6 +19,7 @@ import com.expensesplit.repository.projection.GroupSummary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupService {
@@ -39,6 +42,7 @@ public class GroupService {
     private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
     private final GroupAccessService groupAccess;
+    private final BalanceService balanceService;
 
     /**
      * Grupos a los que pertenece el usuario, paginados y con su balance.
@@ -197,6 +201,69 @@ public class GroupService {
         groupMemberRepository.save(member);
 
         return toResponse(findGroup(groupId), groupMemberRepository.findByGroupId(groupId));
+    }
+
+    /**
+     * Saca a un miembro del grupo: uno mismo (salir) o a un tercero
+     * (expulsar, solo administradores).
+     *
+     * <p><b>Regla de negocio central:</b> nadie sale con saldo distinto de
+     * cero. Al dejar de ser miembro, sus gastos y sus partes siguen en la
+     * base pero desaparecen del informe de balances, que se construye a
+     * partir de la lista de miembros. Si su saldo no era cero, los balances
+     * de quienes quedan dejan de sumar cero y el dinero se evapora del
+     * sistema: alguien deja de cobrar lo que le debian, o de deber lo que
+     * debia, sin que nadie lo note.
+     *
+     * <p>Primero hay que saldar la deuda; despues se puede salir.
+     */
+    @Transactional
+    public void removeMember(Long groupId, Long userId, String requesterEmail) {
+        GroupMember requester = groupAccess.requireMember(groupId, requesterEmail);
+
+        boolean seVaElMismo = requester.getUser().getId().equals(userId);
+
+        if (!seVaElMismo && requester.getRole() != GroupRole.ADMIN) {
+            throw new ForbiddenException("Solo un administrador puede expulsar a otros miembros");
+        }
+
+        GroupMember objetivo = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario no pertenece al grupo"));
+
+        exigirSaldoCero(groupId, userId, seVaElMismo);
+
+        long totalMiembros = groupMemberRepository.countByGroupId(groupId);
+
+        // Un grupo sin administrador queda congelado para siempre: nadie
+        // podria invitar, expulsar ni editarlo. Solo se permite cuando no
+        // queda nadie detras a quien dejar huerfano.
+        if (objetivo.getRole() == GroupRole.ADMIN && esElUnicoAdmin(groupId) && totalMiembros > 1) {
+            throw new BadRequestException(
+                    "Eres el unico administrador: promueve antes a otro miembro.");
+        }
+
+        groupMemberRepository.delete(objetivo);
+        log.info("Usuario {} sale del grupo {} (accion de {})", userId, groupId, requester.getUser().getId());
+    }
+
+    private void exigirSaldoCero(Long groupId, Long userId, boolean seVaElMismo) {
+        BigDecimal saldo = balanceService.calculateNetBalances(groupId).stream()
+                .filter(b -> b.userId().equals(userId))
+                .map(UserBalance::amount)
+                .findFirst()
+                .orElse(CERO);
+
+        if (saldo.signum() == 0) {
+            return;
+        }
+
+        String quien = seVaElMismo ? "Tienes" : "Ese miembro tiene";
+        String detalle = saldo.signum() > 0
+                ? quien + " un saldo pendiente de cobro de " + saldo.abs()
+                : quien + " una deuda pendiente de " + saldo.abs();
+
+        throw new BadRequestException(detalle
+                + ". Hay que saldar las cuentas antes de salir del grupo.");
     }
 
     private boolean esElUnicoAdmin(Long groupId) {

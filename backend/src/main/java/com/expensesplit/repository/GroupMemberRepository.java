@@ -29,4 +29,6 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
      * quede sin ningun administrador.
      */
     long countByGroupIdAndRole(Long groupId, GroupRole role);
+
+    long countByGroupId(Long groupId);
 }
