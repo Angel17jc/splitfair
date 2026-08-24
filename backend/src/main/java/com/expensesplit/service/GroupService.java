@@ -1,6 +1,7 @@
 package com.expensesplit.service;
 
 import com.expensesplit.dto.request.CreateGroupRequest;
+import com.expensesplit.dto.request.UpdateGroupRequest;
 import com.expensesplit.dto.response.GroupResponse;
 import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ResourceNotFoundException;
@@ -144,6 +145,67 @@ public class GroupService {
 
         List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
         return toResponse(group, members);
+    }
+
+    /**
+     * Edita el nombre y la descripcion. Es una accion de administrador: son
+     * datos compartidos por todo el grupo.
+     */
+    @Transactional
+    public GroupResponse updateGroup(Long groupId, UpdateGroupRequest request, String requesterEmail) {
+        groupAccess.requireAdmin(groupId, requesterEmail);
+
+        Group group = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
+
+        group.setName(request.getName().trim());
+        group.setDescription(request.getDescription() == null
+                ? null : request.getDescription().trim());
+        groupRepository.save(group);
+
+        return toResponse(group, groupMemberRepository.findByGroupId(groupId));
+    }
+
+    /**
+     * Cambia el rol de un miembro.
+     *
+     * <p><b>Invariante:</b> un grupo nunca puede quedarse sin administrador.
+     * Si se permitiera, nadie podria volver a invitar, expulsar ni editar el
+     * grupo: quedaria congelado para siempre y sin via de recuperacion desde
+     * la propia aplicacion.
+     */
+    @Transactional
+    public GroupResponse changeMemberRole(Long groupId, Long userId,
+                                            GroupRole nuevoRol, String requesterEmail) {
+        groupAccess.requireAdmin(groupId, requesterEmail);
+
+        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario no pertenece al grupo"));
+
+        if (member.getRole() == nuevoRol) {
+            // Idempotente: pedir el rol que ya se tiene no es un error.
+            return toResponse(findGroup(groupId), groupMemberRepository.findByGroupId(groupId));
+        }
+
+        if (nuevoRol == GroupRole.MEMBER && esElUnicoAdmin(groupId)) {
+            throw new BadRequestException(
+                    "No puedes quitarte el rol de administrador: el grupo se quedaria sin ninguno. "
+                            + "Promueve antes a otro miembro.");
+        }
+
+        member.setRole(nuevoRol);
+        groupMemberRepository.save(member);
+
+        return toResponse(findGroup(groupId), groupMemberRepository.findByGroupId(groupId));
+    }
+
+    private boolean esElUnicoAdmin(Long groupId) {
+        return groupMemberRepository.countByGroupIdAndRole(groupId, GroupRole.ADMIN) <= 1;
+    }
+
+    private Group findGroup(Long groupId) {
+        return groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
     }
 
     @Transactional(readOnly = true)

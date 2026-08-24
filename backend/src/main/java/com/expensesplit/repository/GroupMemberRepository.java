@@ -1,6 +1,7 @@
 package com.expensesplit.repository;
 
 import com.expensesplit.model.GroupMember;
+import com.expensesplit.model.GroupRole;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -22,4 +23,10 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
      */
     Optional<GroupMember> findByGroupIdAndUserEmail(Long groupId, String email);
     boolean existsByGroupIdAndUserId(Long groupId, Long userId);
+
+    /**
+     * Numero de miembros con un rol dado. Se usa para impedir que un grupo se
+     * quede sin ningun administrador.
+     */
+    long countByGroupIdAndRole(Long groupId, GroupRole role);
 }

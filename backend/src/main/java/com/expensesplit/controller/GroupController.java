@@ -1,6 +1,8 @@
 package com.expensesplit.controller;
 
+import com.expensesplit.dto.request.ChangeRoleRequest;
 import com.expensesplit.dto.request.CreateGroupRequest;
+import com.expensesplit.dto.request.UpdateGroupRequest;
 import com.expensesplit.dto.response.GroupResponse;
 import com.expensesplit.dto.response.GroupSummaryResponse;
 import com.expensesplit.dto.response.PagedResponse;
@@ -57,6 +59,27 @@ public class GroupController {
     public ResponseEntity<GroupResponse> getGroup(@PathVariable Long id,
                                                     Authentication authentication) {
         return ResponseEntity.ok(groupService.getGroup(id, authentication.getName()));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<GroupResponse> updateGroup(@PathVariable Long id,
+                                                       @Valid @RequestBody UpdateGroupRequest request,
+                                                       Authentication authentication) {
+        return ResponseEntity.ok(
+                groupService.updateGroup(id, request, authentication.getName()));
+    }
+
+    /**
+     * Promueve a administrador o devuelve a miembro corriente. Solo un
+     * administrador puede hacerlo, y nunca hasta dejar al grupo sin ninguno.
+     */
+    @PatchMapping("/{id}/members/{userId}/role")
+    public ResponseEntity<GroupResponse> changeMemberRole(@PathVariable Long id,
+                                                            @PathVariable Long userId,
+                                                            @Valid @RequestBody ChangeRoleRequest request,
+                                                            Authentication authentication) {
+        return ResponseEntity.ok(groupService.changeMemberRole(
+                id, userId, request.getRole(), authentication.getName()));
     }
 
     @PostMapping("/{id}/members/{userId}")
