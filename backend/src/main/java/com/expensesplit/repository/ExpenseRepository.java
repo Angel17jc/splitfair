@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ExpenseRepository extends JpaRepository<Expense, Long> {
 
@@ -21,6 +22,10 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
      */
     @EntityGraph(attributePaths = {"paidBy", "splits", "splits.user"})
     List<Expense> findByGroupIdOrderByExpenseDateDesc(Long groupId);
+
+    /** Trae el gasto con todo lo que hace falta para editarlo o describirlo. */
+    @EntityGraph(attributePaths = {"group", "paidBy", "splits", "splits.user"})
+    Optional<Expense> findWithDetailsById(Long id);
 
     /**
      * Total desembolsado por cada usuario en el grupo, sumado en la base de
