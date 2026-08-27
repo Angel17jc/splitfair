@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0, 1 y 2 **completadas** (15 commits, 188 tests en verde) · siguiente: Fase 3
+- **Estado:** Fases 0-3 **completadas** (20 commits, 293 tests en verde) · siguiente: Fase 4
 
 ---
 
@@ -286,7 +286,7 @@ en una sola petición; un miembro con deuda pendiente no puede salir.
 
 ---
 
-### Fase 3 — Gastos
+### Fase 3 — Gastos ✅ COMPLETADA
 
 **Commits (5)**
 
@@ -310,8 +310,22 @@ en una sola petición; un miembro con deuda pendiente no puede salir.
 5. `test(expenses): tests de integracion del modulo de gastos`
    - Alta con cada estrategia de split, edición con recálculo, borrado y su efecto en los balances.
 
-**Criterio de cierre:** las cuatro estrategias cuadran al céntimo; editar un gasto deja los
-balances consistentes.
+**Criterio de cierre:** ✅ las cuatro estrategias cuadran al céntimo (verificado sobre ~76.000
+repartos); editar un gasto deja los balances consistentes.
+
+**Hallazgos durante la ejecución:**
+
+- **El problema del céntimo reaparece con los porcentajes.** 33,33 % de 100 tres veces da 99,99.
+  Se generalizó `MoneySplitter` a un reparto por pesos con mayor residuo, en `BigInteger`, sin
+  coma flotante ni redondeos intermedios.
+- **Trampa de paginación:** paginar una consulta que además trae los splits hace que Hibernate
+  cargue todo y pagine **en memoria** (aviso `HHH90003004`). Se resolvió en dos fases —la base
+  pagina identificadores, luego se hidrata la página—. Medido: 5 consultas para 25 gastos.
+- **Trampa de Lombok:** `@Builder.Default` no se aplica cuando el builder recibe un `null`
+  explícito, solo cuando el campo se omite. Un gasto sin categoría llegaba con `null` a una
+  columna `NOT NULL`.
+- **Se rechazan las monedas sin dos decimales** (JPY, KRW, CLP): todo el reparto trabaja en
+  céntimos, y aceptarlas daría cuentas incorrectas en silencio.
 
 ---
 
