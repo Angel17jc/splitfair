@@ -39,6 +39,16 @@ public class Expense {
     @Column(length = 60)
     private String category;
 
+    /**
+     * Como se repartio el gasto. Se guarda para poder reeditarlo sin perder
+     * la intencion original: sin este dato, un gasto al 70/30 volveria a
+     * partes iguales en cuanto alguien corrigiera su descripcion.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "split_type", nullable = false, length = 20)
+    @Builder.Default
+    private SplitType splitType = SplitType.EQUAL;
+
     @Column(name = "expense_date", nullable = false)
     private LocalDate expenseDate;
 

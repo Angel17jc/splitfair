@@ -16,6 +16,7 @@ public class ExpenseResponse {
     private String description;
     private BigDecimal amount;
     private String category;
+    private String splitType;
     private LocalDate expenseDate;
     private String paidByName;
     private List<SplitResponse> splits;

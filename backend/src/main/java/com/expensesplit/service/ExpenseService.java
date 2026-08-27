@@ -1,6 +1,7 @@
 package com.expensesplit.service;
 
 import com.expensesplit.dto.request.CreateExpenseRequest;
+import com.expensesplit.dto.request.SplitEntryRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
 import com.expensesplit.dto.response.BalanceResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
@@ -13,13 +14,18 @@ import com.expensesplit.repository.ExpenseRepository;
 import com.expensesplit.repository.GroupMemberRepository;
 import com.expensesplit.repository.GroupRepository;
 import com.expensesplit.repository.UserRepository;
+import com.expensesplit.service.split.SplitInput;
+import com.expensesplit.service.split.SplitStrategyResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class ExpenseService {
     private final BalanceService balanceService;
     private final DebtSimplificationService debtSimplificationService;
     private final GroupAccessService groupAccess;
+    private final SplitStrategyResolver splitStrategyResolver;
 
     @Transactional
     public ExpenseResponse createExpense(Long groupId, CreateExpenseRequest request, String payerEmail) {
@@ -43,7 +50,8 @@ public class ExpenseService {
         User paidBy = userRepository.findByEmail(payerEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
-        List<User> participants = resolverParticipantes(groupId, request.getSplitBetweenUserIds());
+        RepartoPreparado reparto = prepararReparto(groupId, request.getSplitType(),
+                request.getSplits(), request.getSplitBetweenUserIds());
 
         Expense expense = Expense.builder()
                 .group(group)
@@ -54,7 +62,7 @@ public class ExpenseService {
                 .expenseDate(request.getExpenseDate())
                 .build();
 
-        aplicarReparto(expense, participants);
+        aplicarReparto(expense, reparto);
         expenseRepository.save(expense);
 
         return toResponse(expense);
@@ -73,7 +81,8 @@ public class ExpenseService {
         Expense expense = buscarConPermiso(expenseId, requesterEmail);
         Long groupId = expense.getGroup().getId();
 
-        List<User> participants = resolverParticipantes(groupId, request.getSplitBetweenUserIds());
+        RepartoPreparado reparto = prepararReparto(groupId, request.getSplitType(),
+                request.getSplits(), request.getSplitBetweenUserIds());
 
         expense.setDescription(request.getDescription());
         expense.setAmount(request.getAmount());
@@ -87,7 +96,7 @@ public class ExpenseService {
         expense.getSplits().clear();
         expenseRepository.saveAndFlush(expense);
 
-        aplicarReparto(expense, participants);
+        aplicarReparto(expense, reparto);
         expenseRepository.save(expense);
 
         return toResponse(expense);
@@ -127,57 +136,102 @@ public class ExpenseService {
     }
 
     /**
-     * Determina entre quienes se reparte, validando que todos pertenezcan al
-     * grupo. Un identificador ajeno se cae en el filtro, de modo que despues
-     * se comprueba que no falte ninguno de los pedidos: pasarlo por alto en
-     * silencio repartiria el gasto entre menos gente de la indicada.
+     * Resuelve quienes participan y con que valor, validando que todos
+     * pertenezcan al grupo.
+     *
+     * <p>Admite las dos formas de indicar participantes: la lista detallada
+     * {@code splits}, necesaria para los repartos personalizados, y la
+     * abreviada {@code splitBetweenUserIds}, que solo tiene sentido en el
+     * reparto igual porque no lleva valores.
      */
-    private List<User> resolverParticipantes(Long groupId, List<Long> solicitados) {
-        List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
-        if (members.isEmpty()) {
+    private RepartoPreparado prepararReparto(Long groupId, SplitType tipoPedido,
+                                              List<SplitEntryRequest> splits,
+                                              List<Long> splitBetweenUserIds) {
+
+        SplitType tipo = tipoPedido == null ? SplitType.EQUAL : tipoPedido;
+
+        Map<Long, User> miembros = groupMemberRepository.findByGroupId(groupId).stream()
+                .collect(Collectors.toMap(m -> m.getUser().getId(), GroupMember::getUser,
+                        (a, b) -> a, LinkedHashMap::new));
+
+        if (miembros.isEmpty()) {
             throw new BadRequestException("El grupo no tiene miembros");
         }
 
-        if (solicitados == null) {
-            return members.stream().map(GroupMember::getUser).toList();
-        }
+        List<SplitInput> entradas = construirEntradas(tipo, splits, splitBetweenUserIds, miembros);
 
-        List<User> participants = members.stream()
-                .map(GroupMember::getUser)
-                .filter(u -> solicitados.contains(u.getId()))
-                .toList();
-
-        if (participants.isEmpty()) {
+        if (entradas.isEmpty()) {
             throw new BadRequestException("Debe haber al menos un participante en el gasto");
         }
-        if (participants.size() != solicitados.stream().distinct().count()) {
-            throw new BadRequestException("Algun participante indicado no pertenece al grupo");
+
+        // Un participante repetido duplicaria su parte y descuadraria el
+        // gasto sin que ninguna estrategia lo detectase.
+        if (entradas.stream().map(SplitInput::userId).distinct().count() != entradas.size()) {
+            throw new BadRequestException("Hay participantes repetidos en el reparto");
         }
-        return participants;
+
+        for (SplitInput entrada : entradas) {
+            if (entrada.userId() == null || !miembros.containsKey(entrada.userId())) {
+                // Ignorarlo en silencio repartiria el gasto entre menos gente
+                // de la indicada, y el cliente creeria que se aplico.
+                throw new BadRequestException("Algun participante indicado no pertenece al grupo");
+            }
+        }
+
+        // Orden estable por id: asi el centimo sobrante recae siempre en los
+        // mismos, y recalcular el gasto no cambia a quien le toca.
+        List<SplitInput> ordenadas = entradas.stream()
+                .sorted(Comparator.comparing(SplitInput::userId))
+                .toList();
+
+        return new RepartoPreparado(tipo, ordenadas, miembros);
+    }
+
+    private List<SplitInput> construirEntradas(SplitType tipo,
+                                                List<SplitEntryRequest> splits,
+                                                List<Long> splitBetweenUserIds,
+                                                Map<Long, User> miembros) {
+        if (splits != null && !splits.isEmpty()) {
+            return splits.stream()
+                    .map(e -> new SplitInput(e.getUserId(), e.getValue()))
+                    .toList();
+        }
+
+        if (tipo != SplitType.EQUAL) {
+            throw new BadRequestException("El reparto " + tipo
+                    + " exige indicar el valor de cada participante en 'splits'");
+        }
+
+        List<Long> ids = splitBetweenUserIds != null
+                ? splitBetweenUserIds
+                : List.copyOf(miembros.keySet());
+
+        return ids.stream().map(id -> new SplitInput(id, null)).toList();
     }
 
     /**
-     * Reparte el importe entre los participantes y cuelga las partes del
-     * gasto.
-     *
-     * <p>Se ordenan por id para que el reparto del centimo sobrante sea
-     * estable: recalcular el mismo gasto no debe cambiar a quien le toca
-     * pagar de mas.
+     * Reparte el importe segun la estrategia y cuelga las partes del gasto.
      */
-    private void aplicarReparto(Expense expense, List<User> participants) {
-        List<User> ordered = participants.stream()
-                .sorted(Comparator.comparing(User::getId))
-                .toList();
+    private void aplicarReparto(Expense expense, RepartoPreparado reparto) {
+        List<SplitInput> entradas = reparto.entradas();
 
-        List<BigDecimal> shares = MoneySplitter.splitEqually(expense.getAmount(), ordered.size());
+        List<BigDecimal> importes = splitStrategyResolver.forType(reparto.tipo())
+                .distribute(expense.getAmount(), entradas);
 
-        for (int i = 0; i < ordered.size(); i++) {
+        for (int i = 0; i < entradas.size(); i++) {
             expense.getSplits().add(ExpenseSplit.builder()
                     .expense(expense)
-                    .user(ordered.get(i))
-                    .amountOwed(shares.get(i))
+                    .user(reparto.usuarios().get(entradas.get(i).userId()))
+                    .amountOwed(importes.get(i))
                     .build());
         }
+        expense.setSplitType(reparto.tipo());
+    }
+
+    /** Reparto ya validado, listo para aplicarse. */
+    private record RepartoPreparado(SplitType tipo,
+                                    List<SplitInput> entradas,
+                                    Map<Long, User> usuarios) {
     }
 
     @Transactional(readOnly = true)
@@ -214,6 +268,7 @@ public class ExpenseService {
                 .description(expense.getDescription())
                 .amount(expense.getAmount())
                 .category(expense.getCategory())
+                .splitType(expense.getSplitType().name())
                 .expenseDate(expense.getExpenseDate())
                 .paidByName(expense.getPaidBy().getName())
                 .splits(expense.getSplits().stream().map(s -> ExpenseResponse.SplitResponse.builder()

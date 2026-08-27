@@ -1,8 +1,11 @@
 package com.expensesplit.service;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -74,6 +77,100 @@ public final class MoneySplitter {
         List<BigDecimal> shares = new ArrayList<>(parts);
         for (int i = 0; i < parts; i++) {
             long cents = baseCents + (i < extraCents ? 1 : 0);
+            shares.add(fromCents(cents));
+        }
+        return shares;
+    }
+
+    /**
+     * Reparte {@code total} en proporcion a unos pesos, sin perder ni
+     * inventar dinero.
+     *
+     * <p>Es la generalizacion de {@link #splitEqually}: con pesos todos
+     * iguales produce el mismo resultado. Sirve para repartir por porcentajes
+     * (pesos 50, 30, 20) o por partes (pesos 2, 1, 1).
+     *
+     * <p>El problema del centimo es el mismo y peor: repartir 100.00 entre
+     * tres al 33.33% da 99.99, y al 33.34% da 100.02. Aqui se resuelve con el
+     * mismo metodo del <b>mayor residuo</b>, pero calculado sobre la fraccion
+     * exacta de cada peso:
+     *
+     * <ol>
+     *   <li>a cada participante le corresponde
+     *       {@code totalCentimos * peso / sumaPesos}, en general no entero;</li>
+     *   <li>se le asigna la parte entera, y se anota el resto;</li>
+     *   <li>los centimos que faltan para cuadrar el total van, de uno en uno,
+     *       a quienes tienen mayor resto.</li>
+     * </ol>
+     *
+     * <p>Todo el calculo va en BigInteger: los pesos se escalan a enteros por
+     * su mayor numero de decimales, de modo que no hay division en coma
+     * flotante ni redondeos intermedios en ningun punto.
+     *
+     * <p>Los empates de resto se rompen por posicion, asi que el reparto es
+     * determinista: los mismos argumentos dan siempre el mismo resultado.
+     *
+     * @param total   importe a repartir, no negativo
+     * @param weights pesos, no negativos y con al menos uno positivo
+     * @return lista de importes con escala 2, en el orden de los pesos
+     */
+    public static List<BigDecimal> splitByWeights(BigDecimal total, List<BigDecimal> weights) {
+        if (total == null) {
+            throw new IllegalArgumentException("El importe a repartir no puede ser null");
+        }
+        if (weights == null || weights.isEmpty()) {
+            throw new IllegalArgumentException("Debe haber al menos un peso");
+        }
+        if (total.signum() < 0) {
+            throw new IllegalArgumentException("El importe a repartir no puede ser negativo: " + total);
+        }
+        if (weights.stream().anyMatch(w -> w == null || w.signum() < 0)) {
+            throw new IllegalArgumentException("Los pesos no pueden ser nulos ni negativos");
+        }
+
+        // Escala comun para convertir los pesos en enteros exactos.
+        int escala = weights.stream().mapToInt(BigDecimal::scale).max().orElse(0);
+        List<BigInteger> pesos = weights.stream()
+                .map(w -> w.setScale(escala).unscaledValue())
+                .toList();
+
+        BigInteger sumaPesos = pesos.stream().reduce(BigInteger.ZERO, BigInteger::add);
+        if (sumaPesos.signum() <= 0) {
+            throw new IllegalArgumentException("Al menos un peso debe ser mayor que cero");
+        }
+
+        BigInteger totalCents = BigInteger.valueOf(toCents(total));
+
+        long[] base = new long[pesos.size()];
+        BigInteger[] restos = new BigInteger[pesos.size()];
+        BigInteger asignado = BigInteger.ZERO;
+
+        for (int i = 0; i < pesos.size(); i++) {
+            BigInteger[] division = totalCents.multiply(pesos.get(i)).divideAndRemainder(sumaPesos);
+            base[i] = division[0].longValueExact();
+            restos[i] = division[1];
+            asignado = asignado.add(division[0]);
+        }
+
+        // Siempre menor que el numero de participantes: es cuantos reciben un
+        // centimo mas que su parte entera.
+        int sobrantes = totalCents.subtract(asignado).intValueExact();
+
+        // Mayor resto primero; a igualdad de resto, menor posicion.
+        Integer[] orden = new Integer[pesos.size()];
+        for (int i = 0; i < orden.length; i++) {
+            orden[i] = i;
+        }
+        Arrays.sort(orden, Comparator
+                .comparing((Integer i) -> restos[i]).reversed()
+                .thenComparingInt(i -> i));
+
+        for (int i = 0; i < sobrantes; i++) {
+            base[orden[i]]++;
+        }
+
+        List<BigDecimal> shares = new ArrayList<>(pesos.size());
+        for (long cents : base) {
             shares.add(fromCents(cents));
         }
         return shares;

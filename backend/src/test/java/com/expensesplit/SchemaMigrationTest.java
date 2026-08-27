@@ -104,6 +104,20 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("El tipo de reparto de un gasto debe ser uno de los conocidos")
+    void tipoDeRepartoDesconocidoRechazado() {
+        long userId = insertarUsuario("fran@test.com");
+        long groupId = insertarGrupo("Reparto", userId);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO expenses (group_id, paid_by, description, amount, split_type, " +
+                        "expense_date, created_at) " +
+                        "VALUES (?, ?, 'test', 10.00, 'APORTACION', current_date, now())",
+                groupId, userId))
+                .hasMessageContaining("ck_expenses_split_type");
+    }
+
+    @Test
     @DisplayName("Borrar un grupo arrastra sus miembros, gastos y splits")
     void borradoDeGrupoEnCascada() {
         long userId = insertarUsuario("diego@test.com");
@@ -143,8 +157,9 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
 
     private long insertarGasto(long groupId, long paidBy, String importe) {
         return jdbc.queryForObject(
-                "INSERT INTO expenses (group_id, paid_by, description, amount, expense_date, created_at) " +
-                        "VALUES (?, ?, 'test', ?::numeric, current_date, now()) RETURNING id",
+                "INSERT INTO expenses (group_id, paid_by, description, amount, split_type, " +
+                        "expense_date, created_at) " +
+                        "VALUES (?, ?, 'test', ?::numeric, 'EQUAL', current_date, now()) RETURNING id",
                 Long.class, groupId, paidBy, importe);
     }
 
