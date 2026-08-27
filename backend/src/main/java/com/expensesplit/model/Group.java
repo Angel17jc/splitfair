@@ -26,6 +26,14 @@ public class Group {
     @Column(length = 500)
     private String description;
 
+    /**
+     * Moneda del grupo, ISO 4217. Se fija al crearlo y no cambia: alterarla
+     * reinterpretaria todos los gastos ya registrados sin tocar un solo
+     * importe.
+     */
+    @Column(nullable = false, length = 3, updatable = false)
+    private String currency;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

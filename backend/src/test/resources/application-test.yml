@@ -19,6 +19,7 @@ jwt:
   refresh-token-expiration-days: 30
 
 app:
+  default-currency: USD
   frontend-base-url: http://localhost:5173
   invitations:
     expiration-days: 7

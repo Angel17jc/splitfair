@@ -14,6 +14,7 @@ public record GroupSummary(
         Long groupId,
         String name,
         String description,
+        String currency,
         LocalDateTime createdAt,
         GroupRole role,
         long memberCount) {

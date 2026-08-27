@@ -19,6 +19,7 @@ import com.expensesplit.repository.projection.GroupSummary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +36,9 @@ import java.util.stream.Collectors;
 public class GroupService {
 
     private static final BigDecimal CERO = BigDecimal.ZERO.setScale(2);
+
+    @Value("${app.default-currency}")
+    private String defaultCurrency;
 
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
@@ -69,6 +73,7 @@ public class GroupService {
                 .id(resumen.groupId())
                 .name(resumen.name())
                 .description(resumen.description())
+                .currency(resumen.currency())
                 .createdAt(resumen.createdAt())
                 .role(resumen.role().name())
                 .memberCount(resumen.memberCount())
@@ -108,6 +113,7 @@ public class GroupService {
         Group group = Group.builder()
                 .name(request.getName())
                 .description(request.getDescription())
+                .currency(resolverMoneda(request.getCurrency()))
                 .createdBy(creator)
                 .build();
 
@@ -266,6 +272,16 @@ public class GroupService {
                 + ". Hay que saldar las cuentas antes de salir del grupo.");
     }
 
+    /**
+     * Normaliza la moneda pedida o recurre a la de por defecto. La validez
+     * del codigo ya la ha comprobado @ValidCurrency antes de llegar aqui.
+     */
+    private String resolverMoneda(String solicitada) {
+        return (solicitada == null || solicitada.isBlank())
+                ? defaultCurrency
+                : solicitada.trim().toUpperCase();
+    }
+
     private boolean esElUnicoAdmin(Long groupId) {
         return groupMemberRepository.countByGroupIdAndRole(groupId, GroupRole.ADMIN) <= 1;
     }
@@ -291,6 +307,7 @@ public class GroupService {
                 .id(group.getId())
                 .name(group.getName())
                 .description(group.getDescription())
+                .currency(group.getCurrency())
                 .createdByName(group.getCreatedBy().getName())
                 .createdAt(group.getCreatedAt())
                 .members(members.stream().map(m -> GroupResponse.MemberResponse.builder()

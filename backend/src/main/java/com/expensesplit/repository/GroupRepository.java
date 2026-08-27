@@ -20,7 +20,7 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
      */
     @Query(value = """
             SELECT new com.expensesplit.repository.projection.GroupSummary(
-                g.id, g.name, g.description, g.createdAt, m.role,
+                g.id, g.name, g.description, g.currency, g.createdAt, m.role,
                 (SELECT COUNT(m2) FROM GroupMember m2 WHERE m2.group.id = g.id))
             FROM GroupMember m
             JOIN m.group g

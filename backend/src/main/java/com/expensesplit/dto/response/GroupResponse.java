@@ -14,6 +14,7 @@ public class GroupResponse {
     private Long id;
     private String name;
     private String description;
+    private String currency;
     private String createdByName;
     private LocalDateTime createdAt;
     private List<MemberResponse> members;

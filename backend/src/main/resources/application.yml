@@ -58,6 +58,9 @@ jwt:
   refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:30}
 
 app:
+  # Moneda de los grupos que no indican una al crearse.
+  default-currency: ${DEFAULT_CURRENCY:USD}
+
   # URL publica del frontend: se usa para construir los links de invitacion.
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 

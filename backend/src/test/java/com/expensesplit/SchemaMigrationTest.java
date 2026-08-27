@@ -93,6 +93,17 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @DisplayName("La moneda del grupo debe ser un codigo de tres mayusculas")
+    void monedaConFormatoInvalidoRechazada() {
+        long userId = insertarUsuario("elena@test.com");
+
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO groups (name, created_by, currency, created_at) " +
+                        "VALUES ('Malo', ?, 'eur', now())", userId))
+                .hasMessageContaining("ck_groups_currency");
+    }
+
+    @Test
     @DisplayName("Borrar un grupo arrastra sus miembros, gastos y splits")
     void borradoDeGrupoEnCascada() {
         long userId = insertarUsuario("diego@test.com");
@@ -125,8 +136,8 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
 
     private long insertarGrupo(String nombre, long creadorId) {
         return jdbc.queryForObject(
-                "INSERT INTO groups (name, created_by, created_at) " +
-                        "VALUES (?, ?, now()) RETURNING id",
+                "INSERT INTO groups (name, created_by, currency, created_at) " +
+                        "VALUES (?, ?, 'USD', now()) RETURNING id",
                 Long.class, nombre, creadorId);
     }
 

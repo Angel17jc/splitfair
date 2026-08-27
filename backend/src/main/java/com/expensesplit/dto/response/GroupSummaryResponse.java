@@ -20,6 +20,7 @@ public class GroupSummaryResponse {
     private Long id;
     private String name;
     private String description;
+    private String currency;
     private LocalDateTime createdAt;
 
     /** Rol del usuario que consulta dentro de este grupo. */
