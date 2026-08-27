@@ -4,6 +4,7 @@ import com.expensesplit.dto.request.CreateExpenseRequest;
 import com.expensesplit.dto.request.SplitEntryRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
 import com.expensesplit.dto.response.BalanceResponse;
+import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
 import com.expensesplit.exception.BadRequestException;
@@ -17,10 +18,13 @@ import com.expensesplit.repository.UserRepository;
 import com.expensesplit.service.split.SplitInput;
 import com.expensesplit.service.split.SplitStrategyResolver;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,7 +62,7 @@ public class ExpenseService {
                 .paidBy(paidBy)
                 .description(request.getDescription())
                 .amount(request.getAmount())
-                .category(request.getCategory())
+                .category(categoriaDe(request.getCategory()))
                 .expenseDate(request.getExpenseDate())
                 .build();
 
@@ -86,7 +90,7 @@ public class ExpenseService {
 
         expense.setDescription(request.getDescription());
         expense.setAmount(request.getAmount());
-        expense.setCategory(request.getCategory());
+        expense.setCategory(categoriaDe(request.getCategory()));
         expense.setExpenseDate(request.getExpenseDate());
 
         // Los splits anteriores se borran ANTES de insertar los nuevos, con un
@@ -228,18 +232,68 @@ public class ExpenseService {
         expense.setSplitType(reparto.tipo());
     }
 
+    /**
+     * Un gasto sin categoria queda como OTROS.
+     *
+     * <p>Se resuelve aqui y no con @Builder.Default en la entidad porque
+     * Lombok solo aplica ese valor cuando el campo se omite del builder: al
+     * pasarle explicitamente el null de la peticion, lo asigna tal cual y la
+     * columna NOT NULL revienta al guardar.
+     */
+    private ExpenseCategory categoriaDe(ExpenseCategory solicitada) {
+        return solicitada == null ? ExpenseCategory.OTROS : solicitada;
+    }
+
     /** Reparto ya validado, listo para aplicarse. */
     private record RepartoPreparado(SplitType tipo,
                                     List<SplitInput> entradas,
                                     Map<Long, User> usuarios) {
     }
 
+    /**
+     * Gastos del grupo, paginados y con los filtros que vengan informados.
+     *
+     * <p>Se resuelve en dos consultas y no en una. Paginar directamente una
+     * consulta que ademas trae los splits obligaria a Hibernate a cargar
+     * todas las filas del grupo y paginar en memoria; con suficientes gastos
+     * eso se lleva el servidor por delante. Aqui la base pagina los
+     * identificadores con LIMIT y OFFSET, y despues se hidratan unicamente
+     * los gastos de la pagina.
+     */
     @Transactional(readOnly = true)
-    public List<ExpenseResponse> getGroupExpenses(Long groupId, String requesterEmail) {
+    public PagedResponse<ExpenseResponse> getGroupExpenses(Long groupId, ExpenseFilter filtro,
+                                                            Pageable pageable, String requesterEmail) {
         groupAccess.requireMember(groupId, requesterEmail);
 
-        return expenseRepository.findByGroupIdOrderByExpenseDateDesc(groupId)
-                .stream().map(this::toResponse).toList();
+        Page<Long> ids = expenseRepository.findIdsByFilters(groupId, filtro.category(),
+                filtro.from(), filtro.to(), filtro.paidBy(), pageable);
+
+        if (ids.isEmpty()) {
+            return PagedResponse.from(ids, id -> null);
+        }
+
+        // El IN no garantiza ningun orden, asi que se reordena segun la
+        // pagina de identificadores, que si viene ordenada por fecha.
+        Map<Long, Expense> porId = expenseRepository.findByIdIn(ids.getContent()).stream()
+                .collect(Collectors.toMap(Expense::getId, e -> e));
+
+        return PagedResponse.from(ids, id -> toResponse(porId.get(id)));
+    }
+
+    /**
+     * Filtros opcionales del listado de gastos. Un campo nulo no restringe.
+     *
+     * @param category categoria exacta
+     * @param from     fecha minima, inclusive
+     * @param to       fecha maxima, inclusive
+     * @param paidBy   quien adelanto el dinero
+     */
+    public record ExpenseFilter(ExpenseCategory category, LocalDate from,
+                                 LocalDate to, Long paidBy) {
+
+        public static ExpenseFilter none() {
+            return new ExpenseFilter(null, null, null, null);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -267,7 +321,7 @@ public class ExpenseService {
                 .id(expense.getId())
                 .description(expense.getDescription())
                 .amount(expense.getAmount())
-                .category(expense.getCategory())
+                .category(expense.getCategory().name())
                 .splitType(expense.getSplitType().name())
                 .expenseDate(expense.getExpenseDate())
                 .paidByName(expense.getPaidBy().getName())

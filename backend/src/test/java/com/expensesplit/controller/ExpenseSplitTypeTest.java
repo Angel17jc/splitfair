@@ -313,7 +313,7 @@ class ExpenseSplitTypeTest extends AbstractIntegrationTest {
             // Sin persistir el tipo, un gasto al 70/30 volveria a partes
             // iguales en cuanto alguien corrigiera su descripcion.
             mvc.perform(get("/api/groups/{g}/expenses", grupo).header("Authorization", bearer()))
-                    .andExpect(jsonPath("$[0].splitType").value("PERCENTAGE"));
+                    .andExpect(jsonPath("$.content[0].splitType").value("PERCENTAGE"));
         }
     }
 
@@ -350,7 +350,8 @@ class ExpenseSplitTypeTest extends AbstractIntegrationTest {
         return json.readTree(mvc.perform(get("/api/groups/{g}/expenses", grupo)
                         .header("Authorization", bearer()))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString())
+                .get("content");
     }
 
     private BigDecimal parteDe(long userId) throws Exception {

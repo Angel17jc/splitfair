@@ -111,8 +111,8 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
 
         assertThatThrownBy(() -> jdbc.update(
                 "INSERT INTO expenses (group_id, paid_by, description, amount, split_type, " +
-                        "expense_date, created_at) " +
-                        "VALUES (?, ?, 'test', 10.00, 'APORTACION', current_date, now())",
+                        "category, expense_date, created_at) " +
+                        "VALUES (?, ?, 'test', 10.00, 'APORTACION', 'OTROS', current_date, now())",
                 groupId, userId))
                 .hasMessageContaining("ck_expenses_split_type");
     }
@@ -158,8 +158,8 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
     private long insertarGasto(long groupId, long paidBy, String importe) {
         return jdbc.queryForObject(
                 "INSERT INTO expenses (group_id, paid_by, description, amount, split_type, " +
-                        "expense_date, created_at) " +
-                        "VALUES (?, ?, 'test', ?::numeric, 'EQUAL', current_date, now()) RETURNING id",
+                        "category, expense_date, created_at) " +
+                        "VALUES (?, ?, 'test', ?::numeric, 'EQUAL', 'OTROS', current_date, now()) RETURNING id",
                 Long.class, groupId, paidBy, importe);
     }
 

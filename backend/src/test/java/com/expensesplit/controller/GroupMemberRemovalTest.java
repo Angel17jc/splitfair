@@ -275,8 +275,8 @@ class GroupMemberRemovalTest extends AbstractIntegrationTest {
             // pasada del grupo.
             mvc.perform(get("/api/groups/{g}/expenses", grupo)
                             .header("Authorization", bearer(tokenAna)))
-                    .andExpect(jsonPath("$.length()").value(1))
-                    .andExpect(jsonPath("$[0].description").value("Cena"));
+                    .andExpect(jsonPath("$.content.length()").value(1))
+                    .andExpect(jsonPath("$.content[0].description").value("Cena"));
         }
 
         @Test

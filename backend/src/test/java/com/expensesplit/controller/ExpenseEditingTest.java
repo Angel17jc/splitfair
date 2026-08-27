@@ -120,12 +120,12 @@ class ExpenseEditingTest extends AbstractIntegrationTest {
                             .header("Authorization", bearer(tokenAna))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
-                                    {"description":"Comida","amount":30.00,"category":"comida",
+                                    {"description":"Comida","amount":30.00,"category":"COMIDA",
                                      "expenseDate":"2026-01-15"}
                                     """))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.description").value("Comida"))
-                    .andExpect(jsonPath("$.category").value("comida"))
+                    .andExpect(jsonPath("$.category").value("COMIDA"))
                     .andExpect(jsonPath("$.expenseDate").value("2026-01-15"));
         }
 
@@ -166,7 +166,7 @@ class ExpenseEditingTest extends AbstractIntegrationTest {
                     .andExpect(status().isNoContent());
 
             mvc.perform(get("/api/groups/{g}/expenses", grupo).header("Authorization", bearer(tokenAna)))
-                    .andExpect(jsonPath("$.length()").value(0));
+                    .andExpect(jsonPath("$.content.length()").value(0));
         }
 
         @Test

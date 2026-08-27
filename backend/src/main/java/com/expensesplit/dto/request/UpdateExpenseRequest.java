@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import com.expensesplit.model.ExpenseCategory;
 import com.expensesplit.model.SplitType;
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -29,8 +30,8 @@ public class UpdateExpenseRequest {
     @DecimalMin(value = "0.01", message = "El importe debe ser mayor que cero")
     private BigDecimal amount;
 
-    @Size(max = 60, message = "La categoria no puede superar los 60 caracteres")
-    private String category;
+    /** Si se omite, el gasto queda como OTROS. */
+    private ExpenseCategory category;
 
     @NotNull(message = "La fecha del gasto es obligatoria")
     private LocalDate expenseDate;

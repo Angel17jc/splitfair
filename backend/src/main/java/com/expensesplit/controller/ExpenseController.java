@@ -4,14 +4,20 @@ import com.expensesplit.dto.request.CreateExpenseRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
 import com.expensesplit.dto.response.BalanceResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
+import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
+import com.expensesplit.model.ExpenseCategory;
 import com.expensesplit.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -27,6 +33,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExpenseController {
 
+    /** Tope del tamano de pagina, como en el listado de grupos. */
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final ExpenseService expenseService;
 
     @PostMapping("/api/groups/{groupId}/expenses")
@@ -36,10 +45,29 @@ public class ExpenseController {
         return expenseService.createExpense(groupId, request, authentication.getName());
     }
 
+    /**
+     * Gastos del grupo, paginados y con filtros opcionales.
+     *
+     * <p>El orden es fijo, del mas reciente al mas antiguo. Permitir ordenar
+     * por un campo arbitrario abriria la puerta a ordenaciones sin indice
+     * sobre la tabla que mas crece de la aplicacion.
+     */
     @GetMapping("/api/groups/{groupId}/expenses")
-    public List<ExpenseResponse> getExpenses(@PathVariable Long groupId,
-                                               Authentication authentication) {
-        return expenseService.getGroupExpenses(groupId, authentication.getName());
+    public PagedResponse<ExpenseResponse> getExpenses(
+            @PathVariable Long groupId,
+            @RequestParam(required = false) ExpenseCategory category,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) Long paidBy,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.clamp(size, 1, MAX_PAGE_SIZE));
+
+        return expenseService.getGroupExpenses(groupId,
+                new ExpenseService.ExpenseFilter(category, from, to, paidBy),
+                pageable, authentication.getName());
     }
 
     /**

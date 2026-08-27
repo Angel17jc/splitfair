@@ -36,8 +36,10 @@ public class Expense {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(length = 60)
-    private String category;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 60)
+    @Builder.Default
+    private ExpenseCategory category = ExpenseCategory.OTROS;
 
     /**
      * Como se repartio el gasto. Se guarda para poder reeditarlo sin perder
