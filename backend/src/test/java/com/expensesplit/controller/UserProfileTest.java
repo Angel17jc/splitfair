@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -38,9 +39,10 @@ class UserProfileTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void registrarUsuario() throws Exception {
-        JsonNode credenciales = registrar("Ana", "ana@test.com");
+        MockHttpServletResponse alta = registrar("Ana", "ana@test.com");
+        JsonNode credenciales = json.readTree(alta.getContentAsString());
         accessToken = credenciales.get("accessToken").asText();
-        refreshToken = credenciales.get("refreshToken").asText();
+        refreshToken = refrescoDe(alta);
         userId = credenciales.get("userId").asLong();
     }
 
@@ -175,9 +177,8 @@ class UserProfileTest extends AbstractIntegrationTest {
         @DisplayName("cierra todas las sesiones abiertas")
         void cierraLasSesiones() throws Exception {
             // Se abre una segunda sesion, como si fuera otro dispositivo.
-            String otraSesion = json.readTree(login("ana@test.com", "password123")
-                    .andReturn().getResponse().getContentAsString())
-                    .get("refreshToken").asText();
+            String otraSesion = refrescoDe(login("ana@test.com", "password123")
+                    .andReturn().getResponse());
 
             cambiarContrasena("password123", "nueva-password-456")
                     .andExpect(status().isNoContent());
@@ -197,15 +198,14 @@ class UserProfileTest extends AbstractIntegrationTest {
         return "Bearer " + token;
     }
 
-    private JsonNode registrar(String nombre, String email) throws Exception {
-        String body = mvc.perform(post("/api/auth/register")
+    private MockHttpServletResponse registrar(String nombre, String email) throws Exception {
+        return mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"%s","email":"%s","password":"password123"}
                                 """.formatted(nombre, email)))
                 .andExpect(status().isCreated())
-                .andReturn().getResponse().getContentAsString();
-        return json.readTree(body);
+                .andReturn().getResponse();
     }
 
     private ResultActions login(String email, String password) throws Exception {
@@ -217,9 +217,7 @@ class UserProfileTest extends AbstractIntegrationTest {
     }
 
     private ResultActions refrescar(String token) throws Exception {
-        return mvc.perform(post("/api/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(java.util.Map.of("refreshToken", token))));
+        return mvc.perform(post("/api/auth/refresh").cookie(cookieDeSesion(token)));
     }
 
     private ResultActions cambiarContrasena(String actual, String nueva) throws Exception {

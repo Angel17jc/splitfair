@@ -64,6 +64,20 @@ app:
   # URL publica del frontend: se usa para construir los links de invitacion.
   frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
 
+  auth:
+    # Cookie del refresh token. Se configura por entorno porque en desarrollo
+    # el frontend habla por HTTP plano (localhost:5173 -> localhost:8080) y
+    # una cookie Secure no llegaria a enviarse nunca.
+    #
+    # SameSite=Lax basta en desarrollo: los puertos no cuentan para SameSite,
+    # asi que ambos son el mismo sitio. En produccion se endurece a Strict.
+    refresh-cookie:
+      name: ${REFRESH_COOKIE_NAME:refresh_token}
+      # Solo /api/auth la necesita: el resto de la API va con Authorization.
+      path: ${REFRESH_COOKIE_PATH:/api/auth}
+      secure: ${REFRESH_COOKIE_SECURE:false}
+      same-site: ${REFRESH_COOKIE_SAME_SITE:Lax}
+
   invitations:
     expiration-days: ${INVITATION_EXPIRATION_DAYS:7}
 

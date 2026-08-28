@@ -8,8 +8,11 @@ import lombok.Data;
 /**
  * Credenciales entregadas tras un registro, un login o un refresco.
  *
- * <p>El access token es de vida corta y se envia en cada peticion; el refresh
- * token es de vida larga, se guarda con mas cuidado y solo viaja al renovar.
+ * <p>Aqui solo viaja el access token. El refresh token <b>no aparece en el
+ * cuerpo</b> a proposito: sale en una cookie HttpOnly (ver RefreshCookie), de
+ * modo que el navegador lo envia solo a /api/auth y ningun script puede
+ * leerlo. Devolverlo tambien aqui anularia esa proteccion, porque bastaria un
+ * XSS leyendo la respuesta del login para llevarselo.
  */
 @Data
 @Builder
@@ -18,8 +21,6 @@ import lombok.Data;
 public class AuthResponse {
 
     private String accessToken;
-
-    private String refreshToken;
 
     /** Segundos que le quedan de validez al access token. */
     private long expiresIn;

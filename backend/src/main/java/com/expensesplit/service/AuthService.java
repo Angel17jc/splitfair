@@ -26,7 +26,7 @@ public class AuthService {
     private final InvitationService invitationService;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public Credentials register(RegisterRequest request) {
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.existsByEmail(email)) {
@@ -61,7 +61,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest request) {
+    public Credentials login(LoginRequest request) {
         String email = normalizeEmail(request.getEmail());
 
         // Delega en Spring Security: comprueba la contrasena con el mismo
@@ -84,10 +84,22 @@ public class AuthService {
      * ESTA la que decide el rollback, anulando el noRollbackFor de la interna
      * y deshaciendo la revocacion por reutilizacion.
      */
-    public AuthResponse refresh(String refreshToken) {
+    public Credentials refresh(String refreshToken) {
         RefreshTokenService.RotationResult rotacion = refreshTokenService.rotate(refreshToken);
 
         return buildResponse(rotacion.user(), rotacion.refreshToken());
+    }
+
+    /**
+     * Lo que se entrega tras autenticar: el cuerpo que ve el cliente y el
+     * refresh token, que va por separado porque no viaja en el JSON sino en
+     * una cookie HttpOnly que pone el controlador.
+     *
+     * <p>Van juntos en un mismo valor de retorno para que sea imposible
+     * emitir credenciales y olvidarse de la cookie: no hay forma de obtener
+     * el cuerpo sin tener tambien el token que hay que sellar.
+     */
+    public record Credentials(AuthResponse body, String refreshToken) {
     }
 
     /** Cierra la sesion revocando la familia completa de tokens. */
@@ -95,28 +107,27 @@ public class AuthService {
         refreshTokenService.revokeSession(refreshToken);
     }
 
-    private AuthResponse issueCredentials(User user) {
+    private Credentials issueCredentials(User user) {
         return issueCredentials(user, null);
     }
 
-    private AuthResponse issueCredentials(User user, Long joinedGroupId) {
+    private Credentials issueCredentials(User user, Long joinedGroupId) {
         return buildResponse(user, refreshTokenService.issue(user), joinedGroupId);
     }
 
-    private AuthResponse buildResponse(User user, String refreshToken) {
+    private Credentials buildResponse(User user, String refreshToken) {
         return buildResponse(user, refreshToken, null);
     }
 
-    private AuthResponse buildResponse(User user, String refreshToken, Long joinedGroupId) {
-        return AuthResponse.builder()
+    private Credentials buildResponse(User user, String refreshToken, Long joinedGroupId) {
+        return new Credentials(AuthResponse.builder()
                 .accessToken(jwtTokenProvider.generateAccessToken(user.getEmail()))
-                .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenExpirationSeconds())
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .joinedGroupId(joinedGroupId)
-                .build();
+                .build(), refreshToken);
     }
 
     /**

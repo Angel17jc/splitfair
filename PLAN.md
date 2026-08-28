@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-4 **completadas** (25 commits, 347 tests en verde) · siguiente: Fase 5 (frontend)
+- **Estado:** Fases 0-4 **completadas y auditadas** (27 commits, 352 tests en verde) · en curso: Fase 5
 
 ---
 
@@ -382,7 +382,18 @@ aleatorias; confirmar una liquidación elimina esa deuda de las sugerencias.
 
 ### Fase 5 — Frontend: base y autenticación
 
-**Commits (4)**
+**Commits (5)**
+
+0. `feat(auth): refresh token en cookie httpOnly` — **backend**
+   - Se descubrió al empezar la fase: el plan daba por hecha la cookie `httpOnly`, pero
+     el backend no tenía ni una referencia a cookies. El refresh token viajaba en el
+     cuerpo JSON, así que la única forma de conservarlo entre recargas era
+     `localStorage` — legible por cualquier XSS, y no por 15 minutos sino por 30 días.
+     Guardar solo el access token en memoria no habría protegido de nada.
+   - `RefreshCookie` centraliza la cookie: `HttpOnly`, `Path=/api/auth`, `SameSite`
+     y `Secure` por entorno, y `Max-Age` igual a la vida del token.
+   - `AuthResponse` **deja de exponer** `refreshToken`; `/auth/refresh` y `/auth/logout`
+     dejan de aceptar cuerpo y leen la cookie.
 
 1. `feat(frontend): capa de API tipada y manejo de errores`
    - Tipos TypeScript espejo de los DTO del backend.
@@ -391,7 +402,8 @@ aleatorias; confirmar una liquidación elimina esa deuda de las sugerencias.
 2. `feat(auth): contexto de sesion y rutas protegidas`
    - `AuthProvider` + hook `useAuth`.
    - `<ProtectedRoute>` con redirección a login preservando el destino.
-   - Refresh token en cookie `httpOnly`; access token en memoria (**no** en `localStorage`, que queda expuesto a XSS — hoy `client.ts` lo guarda ahí).
+   - Access token en memoria (**no** en `localStorage`); el refresh lo pone y lo lee el
+     navegador solo, gracias al commit 0.
 
 3. `feat(auth): pantallas de login y registro`
    - React Hook Form + Zod; esquemas de validación compartidos.

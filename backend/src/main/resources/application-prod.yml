@@ -14,6 +14,16 @@ logging:
     root: WARN
     com.expensesplit: INFO
 
+# En produccion la cookie de sesion se endurece. Sin Secure viajaria tambien
+# por HTTP y bastaria una peticion en claro para capturar treinta dias de
+# acceso; sin Strict, un sitio ajeno podria provocar peticiones a /api/auth
+# con ella adjunta.
+app:
+  auth:
+    refresh-cookie:
+      secure: ${REFRESH_COOKIE_SECURE:true}
+      same-site: ${REFRESH_COOKIE_SAME_SITE:Strict}
+
 # La documentacion se sirve solo en desarrollo. En un producto con usuarios
 # reales, publicar el catalogo completo de endpoints, parametros y formas de
 # los errores es reconocimiento gratuito para quien busque por donde entrar.

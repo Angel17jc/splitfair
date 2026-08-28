@@ -1,5 +1,6 @@
 package com.expensesplit;
 
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -7,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
@@ -55,6 +57,25 @@ public abstract class AbstractIntegrationTest {
     void limpiarBaseDeDatos() {
         jdbcTemplate.execute("TRUNCATE expense_splits, expenses, settlements, " +
                 "group_members, groups, users RESTART IDENTITY CASCADE");
+    }
+
+    /**
+     * Nombre de la cookie de sesion. Se repite aqui a proposito en vez de
+     * leerlo de la configuracion: si alguien lo cambia, estos tests deben
+     * fallar y obligar a revisar el cambio, porque renombrar la cookie deja
+     * fuera a todas las sesiones abiertas.
+     */
+    protected static final String COOKIE_REFRESCO = "refresh_token";
+
+    /** El refresh token que la respuesta acaba de sellar, o null si no sello ninguno. */
+    protected static String refrescoDe(MockHttpServletResponse response) {
+        Cookie cookie = response.getCookie(COOKIE_REFRESCO);
+        return cookie == null ? null : cookie.getValue();
+    }
+
+    /** La cookie que enviaria el navegador en la siguiente peticion. */
+    protected static Cookie cookieDeSesion(String refreshToken) {
+        return new Cookie(COOKIE_REFRESCO, refreshToken);
     }
 
     @DynamicPropertySource
