@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-3 **completadas** (20 commits, 293 tests en verde) · siguiente: Fase 4
+- **Estado:** Fases 0-4 **completadas** (25 commits, 347 tests en verde) · siguiente: Fase 5 (frontend)
 
 ---
 
@@ -329,7 +329,7 @@ repartos); editar un gasto deja los balances consistentes.
 
 ---
 
-### Fase 4 — Balances y liquidaciones
+### Fase 4 — Balances y liquidaciones ✅ COMPLETADA
 
 > El núcleo del proyecto y lo más defendible en una entrevista técnica.
 
@@ -360,8 +360,23 @@ repartos); editar un gasto deja los balances consistentes.
    - Sustituir los `toResponse` manuales por mappers generados.
    - `OpenApiConfig` con el esquema `bearerAuth`, para probar la API autenticada desde Swagger UI.
 
-**Criterio de cierre:** los tests de propiedades pasan con datos aleatorios;
-confirmar una liquidación elimina esa deuda de las sugerencias.
+**Criterio de cierre:** ✅ los tests de propiedades pasan sobre ~1.550 configuraciones
+aleatorias; confirmar una liquidación elimina esa deuda de las sugerencias.
+
+**Hallazgos durante la ejecución:**
+
+- **Swagger UI respondía 401.** `/swagger-ui.html` es la URL que se teclea y no casa con el
+  patrón `/swagger-ui/**` de `SecurityConfig`: la documentación estaba generada pero era
+  inaccesible. Corregido y cubierto por un test.
+- **Solo las liquidaciones confirmadas cuentan.** Si una pendiente alterara los balances,
+  bastaría declarar un pago inexistente para borrar una deuda.
+- **Una liquidación confirmada no se borra**: es un hecho contable. Para corregirla se
+  registra el pago inverso, como en cualquier libro de cuentas.
+- El coste de los balances subió de 5 a 8 consultas al añadir las agregaciones de
+  liquidaciones; una era evitable (el guardián de acceso ya carga el grupo). Quedan **7,
+  constantes**.
+- MapStruct con `unmappedTargetPolicy = ERROR` **sí rompe el build** al olvidar un campo,
+  pero solo en compilación completa: la incremental no siempre regenera el mapper.
 
 ---
 
