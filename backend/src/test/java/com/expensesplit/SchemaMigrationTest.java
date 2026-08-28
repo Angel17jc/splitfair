@@ -87,8 +87,8 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
         long groupId = insertarGrupo("Cena", userId);
 
         assertThatThrownBy(() -> jdbc.update(
-                "INSERT INTO settlements (group_id, paid_by, paid_to, amount, status) " +
-                        "VALUES (?, ?, ?, 10.00, 'PENDING')", groupId, userId, userId))
+                "INSERT INTO settlements (group_id, paid_by, paid_to, amount, status, created_at) " +
+                        "VALUES (?, ?, ?, 10.00, 'PENDING', now())", groupId, userId, userId))
                 .hasMessageContaining("ck_settlements_distinct_parties");
     }
 
@@ -115,6 +115,21 @@ class SchemaMigrationTest extends AbstractIntegrationTest {
                         "VALUES (?, ?, 'test', 10.00, 'APORTACION', 'OTROS', current_date, now())",
                 groupId, userId))
                 .hasMessageContaining("ck_expenses_split_type");
+    }
+
+    @Test
+    @DisplayName("Una liquidacion PENDING no puede tener fecha de confirmacion")
+    void estadoYFechaDeLiquidacionCoherentes() {
+        long pagador = insertarUsuario("gema@test.com");
+        long receptor = insertarUsuario("hugo@test.com");
+        long groupId = insertarGrupo("Cuentas", pagador);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO settlements (group_id, paid_by, paid_to, amount, status, " +
+                        "created_at, settled_at) " +
+                        "VALUES (?, ?, ?, 10.00, 'PENDING', now(), now())",
+                groupId, pagador, receptor))
+                .hasMessageContaining("ck_settlements_settled_consistent");
     }
 
     @Test
