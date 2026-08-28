@@ -13,3 +13,12 @@ logging:
   level:
     root: WARN
     com.expensesplit: INFO
+
+# La documentacion se sirve solo en desarrollo. En un producto con usuarios
+# reales, publicar el catalogo completo de endpoints, parametros y formas de
+# los errores es reconocimiento gratuito para quien busque por donde entrar.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

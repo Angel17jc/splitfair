@@ -5,6 +5,7 @@ import com.expensesplit.dto.request.UpdateProfileRequest;
 import com.expensesplit.dto.response.UserResponse;
 import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ResourceNotFoundException;
+import com.expensesplit.mapper.UserMapper;
 import com.expensesplit.model.User;
 import com.expensesplit.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,11 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final UserMapper userMapper;
 
     @Transactional(readOnly = true)
     public UserResponse getProfile(String email) {
-        return toResponse(findByEmail(email));
+        return userMapper.toResponse(findByEmail(email));
     }
 
     @Transactional
@@ -32,7 +34,7 @@ public class UserService {
         User user = findByEmail(email);
         user.setName(request.getName().trim());
 
-        return toResponse(userRepository.save(user));
+        return userMapper.toResponse(userRepository.save(user));
     }
 
     /**
@@ -72,12 +74,4 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
     }
 
-    private UserResponse toResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .email(user.getEmail())
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
 }

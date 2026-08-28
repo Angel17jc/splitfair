@@ -6,6 +6,7 @@ import com.expensesplit.dto.response.SettlementResponse;
 import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ForbiddenException;
 import com.expensesplit.exception.ResourceNotFoundException;
+import com.expensesplit.mapper.SettlementMapper;
 import com.expensesplit.model.*;
 import com.expensesplit.repository.GroupMemberRepository;
 import com.expensesplit.repository.SettlementRepository;
@@ -40,6 +41,7 @@ public class SettlementService {
     private final SettlementRepository settlementRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupAccessService groupAccess;
+    private final SettlementMapper settlementMapper;
 
     /**
      * Registra que el usuario autenticado ha pagado a otro miembro. Nace
@@ -71,7 +73,7 @@ public class SettlementService {
                 settlement.getId(), groupId, pagador.getUser().getId(),
                 request.getAmount(), receptor.getUser().getId());
 
-        return toResponse(settlement);
+        return settlementMapper.toResponse(settlement);
     }
 
     /**
@@ -94,7 +96,7 @@ public class SettlementService {
 
         if (settlement.isConfirmed()) {
             // Idempotente: reintentar una confirmacion no es un error.
-            return toResponse(settlement);
+            return settlementMapper.toResponse(settlement);
         }
 
         settlement.confirm(Instant.now());
@@ -103,7 +105,7 @@ public class SettlementService {
         log.info("Liquidacion {} confirmada por el usuario {}",
                 settlementId, solicitante.getUser().getId());
 
-        return toResponse(settlement);
+        return settlementMapper.toResponse(settlement);
     }
 
     /**
@@ -140,7 +142,7 @@ public class SettlementService {
 
         return PagedResponse.from(
                 settlementRepository.findByGroupIdOrderByCreatedAtDesc(groupId, pageable),
-                this::toResponse);
+                settlementMapper::toResponse);
     }
 
     private Settlement buscar(Long settlementId) {
@@ -148,18 +150,4 @@ public class SettlementService {
                 .orElseThrow(() -> new ResourceNotFoundException("Liquidacion no encontrada"));
     }
 
-    private SettlementResponse toResponse(Settlement s) {
-        return SettlementResponse.builder()
-                .id(s.getId())
-                .paidByUserId(s.getPaidBy().getId())
-                .paidByName(s.getPaidBy().getName())
-                .paidToUserId(s.getPaidTo().getId())
-                .paidToName(s.getPaidTo().getName())
-                .amount(s.getAmount())
-                .currency(s.getGroup().getCurrency())
-                .status(s.getStatus().name())
-                .createdAt(s.getCreatedAt())
-                .settledAt(s.getSettledAt())
-                .build();
-    }
 }

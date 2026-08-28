@@ -11,6 +11,7 @@ import com.expensesplit.dto.response.SettlementSuggestionResponse;
 import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ForbiddenException;
 import com.expensesplit.exception.ResourceNotFoundException;
+import com.expensesplit.mapper.ExpenseMapper;
 import com.expensesplit.model.*;
 import com.expensesplit.repository.ExpenseRepository;
 import com.expensesplit.repository.GroupMemberRepository;
@@ -44,6 +45,7 @@ public class ExpenseService {
     private final DebtSimplificationService debtSimplificationService;
     private final GroupAccessService groupAccess;
     private final SplitStrategyResolver splitStrategyResolver;
+    private final ExpenseMapper expenseMapper;
 
     @Transactional
     public ExpenseResponse createExpense(Long groupId, CreateExpenseRequest request, String payerEmail) {
@@ -70,7 +72,7 @@ public class ExpenseService {
         aplicarReparto(expense, reparto);
         expenseRepository.save(expense);
 
-        return toResponse(expense);
+        return expenseMapper.toResponse(expense);
     }
 
     /**
@@ -104,7 +106,7 @@ public class ExpenseService {
         aplicarReparto(expense, reparto);
         expenseRepository.save(expense);
 
-        return toResponse(expense);
+        return expenseMapper.toResponse(expense);
     }
 
     /**
@@ -278,7 +280,7 @@ public class ExpenseService {
         Map<Long, Expense> porId = expenseRepository.findByIdIn(ids.getContent()).stream()
                 .collect(Collectors.toMap(Expense::getId, e -> e));
 
-        return PagedResponse.from(ids, id -> toResponse(porId.get(id)));
+        return PagedResponse.from(ids, id -> expenseMapper.toResponse(porId.get(id)));
     }
 
     /**
@@ -335,20 +337,4 @@ public class ExpenseService {
         return debtSimplificationService.simplify(balanceService.calculateNetBalances(groupId));
     }
 
-    private ExpenseResponse toResponse(Expense expense) {
-        return ExpenseResponse.builder()
-                .id(expense.getId())
-                .description(expense.getDescription())
-                .amount(expense.getAmount())
-                .category(expense.getCategory().name())
-                .splitType(expense.getSplitType().name())
-                .expenseDate(expense.getExpenseDate())
-                .paidByName(expense.getPaidBy().getName())
-                .splits(expense.getSplits().stream().map(s -> ExpenseResponse.SplitResponse.builder()
-                        .userId(s.getUser().getId())
-                        .userName(s.getUser().getName())
-                        .amountOwed(s.getAmountOwed())
-                        .build()).toList())
-                .build();
-    }
 }

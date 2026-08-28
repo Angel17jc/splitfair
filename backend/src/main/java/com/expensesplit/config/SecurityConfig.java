@@ -54,7 +54,11 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // "/swagger-ui.html" va aparte: es la URL que la gente teclea y
+                // NO casa con "/swagger-ui/**", asi que sin ella la
+                // documentacion respondia 401 y quedaba inaccesible.
+                .requestMatchers("/api/auth/**",
+                        "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // Solo la vista previa de una invitacion es publica: quien
                 // abre el link puede no tener cuenta todavia. Se acota al
                 // metodo GET para no abrir de paso el resto de operaciones
