@@ -7,12 +7,14 @@ import com.expensesplit.exception.BadRequestException;
 import com.expensesplit.exception.ForbiddenException;
 import com.expensesplit.exception.ResourceNotFoundException;
 import com.expensesplit.model.*;
+import com.expensesplit.model.SettlementStatus;
 import com.expensesplit.dto.response.GroupSummaryResponse;
 import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.repository.ExpenseRepository;
 import com.expensesplit.repository.ExpenseSplitRepository;
 import com.expensesplit.repository.GroupMemberRepository;
 import com.expensesplit.repository.GroupRepository;
+import com.expensesplit.repository.SettlementRepository;
 import com.expensesplit.repository.UserRepository;
 import com.expensesplit.repository.projection.GroupAmount;
 import com.expensesplit.repository.projection.GroupSummary;
@@ -45,6 +47,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final ExpenseRepository expenseRepository;
     private final ExpenseSplitRepository expenseSplitRepository;
+    private final SettlementRepository settlementRepository;
     private final GroupAccessService groupAccess;
     private final BalanceService balanceService;
 
@@ -93,10 +96,20 @@ public class GroupService {
         Map<Long, BigDecimal> adeudado = indexar(
                 expenseSplitRepository.sumOwedByUserPerGroup(userId, groupIds));
 
+        // Las liquidaciones confirmadas entran en el calculo igual que en el
+        // detalle. Si no, el listado mostraria una deuda que el usuario acaba
+        // de saldar y que ya no aparece al entrar en el grupo.
+        Map<Long, BigDecimal> entregado = indexar(settlementRepository
+                .sumPaidOutByUserPerGroup(userId, SettlementStatus.CONFIRMED, groupIds));
+        Map<Long, BigDecimal> cobrado = indexar(settlementRepository
+                .sumReceivedByUserPerGroup(userId, SettlementStatus.CONFIRMED, groupIds));
+
         return groupIds.stream().collect(Collectors.toMap(
                 id -> id,
                 id -> pagado.getOrDefault(id, CERO)
                         .subtract(adeudado.getOrDefault(id, CERO))
+                        .add(entregado.getOrDefault(id, CERO))
+                        .subtract(cobrado.getOrDefault(id, CERO))
                         .setScale(2, RoundingMode.HALF_UP)));
     }
 

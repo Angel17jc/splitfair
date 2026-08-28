@@ -299,10 +299,9 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public GroupBalanceResponse getGroupBalances(Long groupId, String requesterEmail) {
-        groupAccess.requireMember(groupId, requesterEmail);
-
-        Group grupo = groupRepository.findById(groupId)
-                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
+        // El guardian ya devuelve la pertenencia con su grupo cargado: pedirlo
+        // otra vez seria una consulta de mas en cada lectura de balances.
+        Group grupo = groupAccess.requireMember(groupId, requesterEmail).getGroup();
 
         List<UserBalance> balances = balanceService.calculateNetBalances(groupId);
 
@@ -321,6 +320,8 @@ public class ExpenseService {
                                 .userName(b.userName())
                                 .totalPaid(b.totalPaid())
                                 .totalOwed(b.totalOwed())
+                                .settlementsPaid(b.settlementsPaid())
+                                .settlementsReceived(b.settlementsReceived())
                                 .netBalance(b.amount())
                                 .build())
                         .toList())

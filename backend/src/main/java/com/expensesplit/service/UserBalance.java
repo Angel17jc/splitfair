@@ -23,18 +23,28 @@ import java.math.BigDecimal;
  *   <li>{@code amount == 0} esta a paz y salvo</li>
  * </ul>
  *
- * @param userId    usuario
- * @param userName  nombre, para no obligar a otra consulta
- * @param totalPaid lo que adelanto de su bolsillo
- * @param totalOwed lo que le correspondia asumir
- * @param amount    neto: {@code totalPaid - totalOwed}
+ * <p>Las liquidaciones se mantienen aparte de los gastos y no se suman a
+ * {@code totalPaid}. Adelantar dinero de un gasto y saldar una deuda son
+ * cosas distintas: mezclarlas haria imposible explicar la cifra, que es
+ * justamente para lo que sirve el desglose.
+ *
+ * @param userId               usuario
+ * @param userName             nombre, para no obligar a otra consulta
+ * @param totalPaid            lo que adelanto en gastos
+ * @param totalOwed            lo que le correspondia asumir de esos gastos
+ * @param settlementsPaid      lo que ha entregado en pagos confirmados
+ * @param settlementsReceived  lo que ha cobrado en pagos confirmados
+ * @param amount               neto: {@code (totalPaid - totalOwed) +
+ *                             (settlementsPaid - settlementsReceived)}
  */
 public record UserBalance(Long userId, String userName,
                           BigDecimal totalPaid, BigDecimal totalOwed,
+                          BigDecimal settlementsPaid, BigDecimal settlementsReceived,
                           BigDecimal amount) {
 
     /** Atajo para los tests y para el algoritmo, que solo miran el neto. */
     public static UserBalance of(Long userId, String userName, BigDecimal amount) {
-        return new UserBalance(userId, userName, BigDecimal.ZERO, BigDecimal.ZERO, amount);
+        return new UserBalance(userId, userName, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, amount);
     }
 }

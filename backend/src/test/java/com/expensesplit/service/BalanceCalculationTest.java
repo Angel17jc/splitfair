@@ -132,14 +132,16 @@ class BalanceCalculationTest extends AbstractIntegrationTest {
 
         long consultas = stats.getPrepareStatementCount();
 
-        // Son 5 y no dependen del numero de gastos: dos agregaciones, la lista
-        // de miembros y las dos del control de acceso. Con el recorrido
-        // perezoso anterior pasaban de 30 para 15 gastos y seguian creciendo.
-        // El umbral deja margen para 2 consultas mas: cualquier regresion que
-        // introduzca una consulta por gasto o por miembro lo rompe.
+        // Son 7 y no dependen del numero de gastos: dos del control de acceso,
+        // dos agregaciones de gastos, dos de liquidaciones y la lista de
+        // miembros. Con el recorrido perezoso original pasaban de 30 para 15
+        // gastos y seguian creciendo con cada gasto nuevo.
+        //
+        // El umbral deja margen para 2 mas: cualquier regresion que introduzca
+        // una consulta por gasto o por miembro lo rompe.
         assertThat(consultas)
                 .as("consultas ejecutadas al calcular balances de 15 gastos")
-                .isLessThanOrEqualTo(7);
+                .isLessThanOrEqualTo(9);
     }
 
     @Test

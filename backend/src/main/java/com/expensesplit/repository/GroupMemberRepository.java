@@ -20,7 +20,12 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     /**
      * Busca la pertenencia a partir del email, que es lo que viaja en el JWT.
      * Evita tener que resolver antes el usuario en una consulta aparte.
+     *
+     * <p>Trae tambien el grupo: quien comprueba el acceso casi siempre
+     * necesita despues alguno de sus datos (la moneda, el nombre), y pedirlo
+     * en una consulta aparte seria una consulta de mas en cada peticion.
      */
+    @EntityGraph(attributePaths = {"user", "group"})
     Optional<GroupMember> findByGroupIdAndUserEmail(Long groupId, String email);
     boolean existsByGroupIdAndUserId(Long groupId, Long userId);
 
