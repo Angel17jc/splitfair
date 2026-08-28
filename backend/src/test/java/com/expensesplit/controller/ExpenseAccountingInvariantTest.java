@@ -274,7 +274,8 @@ class ExpenseAccountingInvariantTest extends AbstractIntegrationTest {
         return json.readTree(mvc.perform(get("/api/groups/{g}/balances", grupo)
                         .header("Authorization", bearer(tokenAna)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString())
+                .get("balances");
     }
 
     private JsonNode liquidaciones() throws Exception {

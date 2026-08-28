@@ -162,7 +162,7 @@ class BalanceCalculationTest extends AbstractIntegrationTest {
     // --- utilidades ---
 
     private JsonNode leerBalances() throws Exception {
-        return leerJson(get("/api/groups/{id}/balances", grupo));
+        return leerJson(get("/api/groups/{id}/balances", grupo)).get("balances");
     }
 
     private JsonNode leerJson(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req)

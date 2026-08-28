@@ -94,11 +94,11 @@ public class DebtSimplificationService {
         BigDecimal resto = balance.amount().subtract(transferido);
 
         if (resto.compareTo(EPSILON) > 0) {
-            cola.add(new UserBalance(balance.userId(), balance.userName(), resto));
+            cola.add(UserBalance.of(balance.userId(), balance.userName(), resto));
         }
     }
 
     private UserBalance enValorAbsoluto(UserBalance balance) {
-        return new UserBalance(balance.userId(), balance.userName(), balance.amount().abs());
+        return UserBalance.of(balance.userId(), balance.userName(), balance.amount().abs());
     }
 }

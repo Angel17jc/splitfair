@@ -304,7 +304,8 @@ class GroupMemberRemovalTest extends AbstractIntegrationTest {
         return json.readTree(mvc.perform(get("/api/groups/{g}/balances", grupo)
                         .header("Authorization", bearer(tokenAna)))
                 .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString())
+                .get("balances");
     }
 
     private JsonNode registrar(String nombre, String email) throws Exception {

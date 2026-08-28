@@ -69,11 +69,18 @@ public class BalanceService {
                                   Map<Long, BigDecimal> adeudado) {
         Long userId = member.getUser().getId();
 
-        BigDecimal balance = pagado.getOrDefault(userId, BigDecimal.ZERO)
-                .subtract(adeudado.getOrDefault(userId, BigDecimal.ZERO))
-                .setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal totalPagado = normalizar(pagado.get(userId));
+        BigDecimal totalAdeudado = normalizar(adeudado.get(userId));
 
-        return new UserBalance(userId, member.getUser().getName(), balance);
+        return new UserBalance(userId, member.getUser().getName(),
+                totalPagado, totalAdeudado,
+                totalPagado.subtract(totalAdeudado).setScale(SCALE, RoundingMode.HALF_UP));
+    }
+
+    private BigDecimal normalizar(BigDecimal importe) {
+        return importe == null
+                ? BigDecimal.ZERO.setScale(SCALE)
+                : importe.setScale(SCALE, RoundingMode.HALF_UP);
     }
 
     private Map<Long, BigDecimal> indexar(List<UserAmount> totales) {

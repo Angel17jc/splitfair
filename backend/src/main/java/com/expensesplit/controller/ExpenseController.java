@@ -2,7 +2,7 @@ package com.expensesplit.controller;
 
 import com.expensesplit.dto.request.CreateExpenseRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
-import com.expensesplit.dto.response.BalanceResponse;
+import com.expensesplit.dto.response.GroupBalanceResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
 import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
@@ -88,8 +88,8 @@ public class ExpenseController {
     }
 
     @GetMapping("/api/groups/{groupId}/balances")
-    public List<BalanceResponse> getBalances(@PathVariable Long groupId,
-                                               Authentication authentication) {
+    public GroupBalanceResponse getBalances(@PathVariable Long groupId,
+                                              Authentication authentication) {
         return expenseService.getGroupBalances(groupId, authentication.getName());
     }
 

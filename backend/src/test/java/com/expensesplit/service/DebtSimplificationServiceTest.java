@@ -16,7 +16,7 @@ class DebtSimplificationServiceTest {
     private final DebtSimplificationService service = new DebtSimplificationService();
 
     private static UserBalance balance(long id, String nombre, String importe) {
-        return new UserBalance(id, nombre, new BigDecimal(importe));
+        return UserBalance.of(id, nombre, new BigDecimal(importe));
     }
 
     @Test

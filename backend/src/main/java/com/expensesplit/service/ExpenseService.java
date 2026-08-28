@@ -4,6 +4,7 @@ import com.expensesplit.dto.request.CreateExpenseRequest;
 import com.expensesplit.dto.request.SplitEntryRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
 import com.expensesplit.dto.response.BalanceResponse;
+import com.expensesplit.dto.response.GroupBalanceResponse;
 import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
@@ -297,16 +298,33 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
-    public List<BalanceResponse> getGroupBalances(Long groupId, String requesterEmail) {
+    public GroupBalanceResponse getGroupBalances(Long groupId, String requesterEmail) {
         groupAccess.requireMember(groupId, requesterEmail);
 
-        return balanceService.calculateNetBalances(groupId).stream()
-                .map(b -> BalanceResponse.builder()
-                        .userId(b.userId())
-                        .userName(b.userName())
-                        .netBalance(b.amount())
-                        .build())
-                .toList();
+        Group grupo = groupRepository.findById(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Grupo no encontrado"));
+
+        List<UserBalance> balances = balanceService.calculateNetBalances(groupId);
+
+        // El gasto total del grupo es la suma de lo adelantado por todos: no
+        // hace falta una consulta extra para obtenerlo.
+        BigDecimal totalGastado = balances.stream()
+                .map(UserBalance::totalPaid)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return GroupBalanceResponse.builder()
+                .currency(grupo.getCurrency())
+                .totalSpent(totalGastado)
+                .balances(balances.stream()
+                        .map(b -> BalanceResponse.builder()
+                                .userId(b.userId())
+                                .userName(b.userName())
+                                .totalPaid(b.totalPaid())
+                                .totalOwed(b.totalOwed())
+                                .netBalance(b.amount())
+                                .build())
+                        .toList())
+                .build();
     }
 
     @Transactional(readOnly = true)

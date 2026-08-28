@@ -374,7 +374,8 @@ class ExpenseSplitTypeTest extends AbstractIntegrationTest {
     private BigDecimal sumaDeBalances() throws Exception {
         JsonNode balances = json.readTree(mvc.perform(get("/api/groups/{g}/balances", grupo)
                         .header("Authorization", bearer()))
-                .andReturn().getResponse().getContentAsString());
+                .andReturn().getResponse().getContentAsString())
+                .get("balances");
 
         BigDecimal suma = BigDecimal.ZERO;
         for (JsonNode b : balances) {
