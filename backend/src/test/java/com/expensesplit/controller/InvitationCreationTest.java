@@ -189,13 +189,22 @@ class InvitationCreationTest extends AbstractIntegrationTest {
             crearGasto(tokenAna, grupo, "Alquiler", "900.00");
             String token = tokenDe(invitar(tokenAna, null));
 
-            String cuerpo = mvc.perform(get("/api/invitations/{token}", token))
-                    .andReturn().getResponse().getContentAsString();
+            JsonNode cuerpo = json.readTree(mvc.perform(get("/api/invitations/{token}", token))
+                    .andReturn().getResponse().getContentAsString());
 
-            // Este endpoint se sirve sin autenticacion: cualquier dato de mas
-            // queda expuesto a quien tenga el link.
-            assertThat(cuerpo)
-                    .doesNotContain("Alquiler", "900", "members", "balance", "email");
+            // Este endpoint se sirve sin autenticacion: cualquier campo de mas
+            // queda expuesto a quien tenga el link. Se afirma el conjunto
+            // exacto de campos, no una lista de prohibidos, por dos razones:
+            //
+            // 1. Una lista negra solo detecta las fugas que alguien penso en
+            //    escribir. Anadir un campo nuevo al DTO la deja pasar en
+            //    silencio, que es justo el descuido que este test cubre.
+            // 2. Comparaba subcadenas contra el JSON crudo, y eso la hacia
+            //    intermitente: el importe "900" aparecia por casualidad dentro
+            //    de los microsegundos de expiresAt (...T04:32:47.900208Z) y el
+            //    test fallaba sin que nada estuviera mal.
+            assertThat(cuerpo.fieldNames()).toIterable()
+                    .containsExactlyInAnyOrder("groupName", "invitedByName", "expiresAt", "valid");
         }
 
         @Test
