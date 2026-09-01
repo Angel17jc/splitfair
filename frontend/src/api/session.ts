@@ -70,8 +70,23 @@ export const sesion = {
     alPerderLaSesion = callback
   },
 
-  /** Uso interno del interceptor cuando el refresco falla definitivamente. */
+  /**
+   * Uso interno cuando el refresco falla definitivamente.
+   *
+   * Solo se pierde una sesion que existia. La guarda hace dos cosas a la vez:
+   *
+   * - Si diez peticiones esperaban al mismo refresco y este falla, la primera
+   *   cierra la sesion y avisa; las nueve restantes ya la encuentran cerrada
+   *   y no vuelven a avisar. Sin esto habria diez redirecciones al login.
+   * - Un intento de restaurar la sesion al arrancar que falla porque
+   *   simplemente no habia ninguna **no es una perdida**. Sin la guarda,
+   *   abrir una pagina publica sin haber iniciado sesion expulsaria al
+   *   visitante al login.
+   */
   notificarPerdida() {
+    if (accessToken === null && usuario === null) {
+      return
+    }
     this.cerrar()
     alPerderLaSesion?.()
   },

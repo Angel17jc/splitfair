@@ -74,20 +74,31 @@ interface PeticionReintentable extends InternalAxiosRequestConfig {
  * Guardando la promesa, las cinco esperan al mismo refresco y reintentan con
  * el token que salga de el.
  */
-let refrescoEnCurso: Promise<string> | null = null
+let refrescoEnCurso: Promise<Auth> | null = null
 
-function renovarAccessToken(): Promise<string> {
+/**
+ * Renueva la sesion. Punto unico: lo usan tanto el interceptor como el
+ * arranque de la aplicacion.
+ *
+ * Que sea uno solo no es cosmetico. React 18 en StrictMode monta, desmonta y
+ * vuelve a montar en desarrollo, asi que el efecto que restaura la sesion se
+ * ejecuta dos veces. Con dos caminos distintos serian dos refrescos: el
+ * segundo presentaria un token ya rotado, el backend lo leeria como
+ * reutilizacion y **revocaria la familia entera**, expulsando al usuario en
+ * cada recarga. Compartiendo la promesa, el segundo se engancha al primero.
+ */
+export function renovarSesion(): Promise<Auth> {
   if (!refrescoEnCurso) {
     refrescoEnCurso = clienteDeRefresco
       // Sin cuerpo: la credencial la aporta el navegador en la cookie.
       .post<Auth>('/auth/refresh')
       .then(({ data }) => {
         sesion.abrir(data)
-        return data.accessToken
+        return data
       })
       .catch((error: unknown) => {
-        // Una sola notificacion aunque hubiera diez peticiones esperando: si
-        // no, el AuthProvider dispararia diez redirecciones al login.
+        // La sesion queda cerrada y se avisa una sola vez, aunque hubiera
+        // diez peticiones esperando (ver sesion.notificarPerdida).
         sesion.notificarPerdida()
         throw comoApiError(error)
       })
@@ -135,9 +146,9 @@ apiClient.interceptors.response.use(
     // peticion sale por la rama de arriba en vez de volver a empezar.
     peticion.yaReintentada = true
 
-    let token: string
+    let renovada: Auth
     try {
-      token = await renovarAccessToken()
+      renovada = await renovarSesion()
     } catch {
       // El refresco fallo, la sesion esta muerta y ya se ha notificado. Se
       // propaga el 401 original: es el error de la peticion que el usuario
@@ -145,18 +156,7 @@ apiClient.interceptors.response.use(
       throw comoApiError(error)
     }
 
-    peticion.headers.Authorization = `Bearer ${token}`
+    peticion.headers.Authorization = `Bearer ${renovada.accessToken}`
     return apiClient.request(peticion)
   },
 )
-
-/** Emite credenciales por la ruta de refresco. Lo usa el arranque de sesion. */
-export async function refrescarSesion(): Promise<Auth> {
-  try {
-    const { data } = await clienteDeRefresco.post<Auth>('/auth/refresh')
-    sesion.abrir(data)
-    return data
-  } catch (error) {
-    throw comoApiError(error)
-  }
-}

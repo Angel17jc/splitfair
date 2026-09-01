@@ -6,7 +6,7 @@
  * "limpiar" nada guardado, porque nunca se guardo nada.
  */
 
-import { apiClient, refrescarSesion } from './client'
+import { apiClient, renovarSesion } from './client'
 import { comoApiError } from './errors'
 import { sesion } from './session'
 import type { Auth, LoginInput, RegisterInput } from '../types/api'
@@ -29,7 +29,7 @@ export async function iniciarSesion(datos: LoginInput): Promise<Auth> {
  * El access token se pierde al recargar porque vive en memoria; la cookie
  * sobrevive. Esto cambia una por el otro.
  */
-export const restaurarSesion = refrescarSesion
+export const restaurarSesion = renovarSesion
 
 /**
  * Cierra sesion.
