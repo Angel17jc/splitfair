@@ -86,66 +86,128 @@ Abre VS Code, ve a la pestaña de extensiones (Ctrl+Shift+X) e instala:
 
 ## Cómo levantar el proyecto
 
-### Opción A: Todo con Docker Compose (recomendado para empezar)
+### Paso 0 (obligatorio): el archivo `.env`
+
+**Nada arranca sin esto.** `JWT_SECRET` no tiene valor por defecto y la
+aplicación se niega a arrancar si falta o si mide menos de 32 bytes. Es
+deliberado: un secreto con valor por defecto acaba en producción.
+
+```bash
+cp .env.example .env
+```
+
+Y rellena las dos variables sin valor:
+
+| Variable | Cómo generarla |
+|---|---|
+| `DB_PASSWORD` | La que quieras; es tu Postgres local. |
+| `JWT_SECRET` | `openssl rand -base64 48` |
+
+⚠️ **`DB_PORT` viene en `5434`, no en 5432, y es a propósito.** Ver
+[Conflicto de puerto en el 5432](#conflicto-de-puerto-en-el-5432). Solo afecta
+al lado del host: dentro de Compose el backend habla con `postgres:5432`.
+
+`.env` está en `.gitignore` y nunca debe versionarse.
+
+### Opción A: Todo con Docker Compose
 
 Desde la raíz del proyecto:
 ```bash
 docker compose up --build
 ```
 
-Esto levanta:
-- PostgreSQL en `localhost:5432`
-- Backend (Spring Boot) en `localhost:8080`
-- Frontend (React) en `localhost:5173`
+Levanta PostgreSQL, backend (`:8080`) y frontend (`:5173`).
 
-Para detenerlo:
 ```bash
-docker compose down
+docker compose down      # detener
+docker compose down -v   # detener y BORRAR los datos
 ```
 
-Para borrar también los datos de la base de datos:
-```bash
-docker compose down -v
-```
+### Opción B: Por separado (lo normal mientras desarrollas)
 
-### Opción B: Backend y frontend por separado (útil mientras desarrollas)
+Es la forma cómoda: recarga en caliente en ambos lados.
 
-**1. Levanta solo la base de datos con Docker:**
+**1. Solo la base de datos:**
 ```bash
 docker compose up postgres -d
 ```
 
-**2. Backend (en una terminal, dentro de `backend/`):**
-```bash
-cd backend
-mvn spring-boot:run
-```
-El backend queda corriendo en `http://localhost:8080`.
+**2. Backend** — en una terminal, desde `backend/`. Hay que **cargar el `.env`
+antes**, o fallará por falta de `JWT_SECRET`:
 
-**3. Frontend (en otra terminal, dentro de `frontend/`):**
 ```bash
-cd frontend
+# Git Bash
+set -a && . /c/splitwise/.env && set +a
+./mvnw spring-boot:run
+```
+
+```powershell
+# PowerShell
+Get-Content ..\.env | Where-Object { $_ -match '^[A-Z]' } | ForEach-Object {
+  $n, $v = $_ -split '=', 2; Set-Item -Path "env:$n" -Value $v
+}
+.\mvnw spring-boot:run
+```
+
+Usa el **wrapper** (`./mvnw`), no `mvn`: fija la versión de Maven y la de la
+API de Docker que necesitan los tests.
+
+**3. Frontend** — en otra terminal, desde `frontend/`:
+```bash
+cp .env.example .env    # solo la primera vez
 npm install
 npm run dev
 ```
-El frontend queda corriendo en `http://localhost:5173`.
+
+En `http://localhost:5173`.
+
+> **Los dos tienen que estar levantados a la vez.** El frontend guarda el
+> access token en memoria y recupera la sesión pidiéndole uno nuevo al
+> backend; sin backend, todo acaba en la pantalla de acceso.
 
 ---
 
 ## Verificar que todo funciona
 
-1. Con el backend corriendo, abre `http://localhost:8080/swagger-ui.html` para ver la documentación interactiva de la API (Swagger).
-2. Prueba el endpoint de registro desde Swagger o con curl:
+### Por la interfaz
+
+1. Abre `http://localhost:5173`. Sin sesión te lleva a `/login`.
+2. Crea una cuenta en **Crear una** → entras al dashboard.
+3. **Recarga la página (F5).** Debes seguir dentro. Ese es el criterio de la
+   Fase 5: el access token vive en memoria y se perdió, pero la cookie
+   `HttpOnly` del refresh token sobrevive y la sesión se recupera sola.
+4. Menú de usuario → **Cerrar sesión** → vuelves a `/login`.
+
+### Por la API
+
+Swagger en `http://localhost:8080/swagger-ui.html` (solo en el perfil `dev`;
+en producción está apagado a propósito).
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
+curl -i -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name":"Ana Test","email":"ana@test.com","password":"password123"}'
 ```
 
-Deberías recibir un JSON con un `token` JWT.
+Responde **201** con `{accessToken, expiresIn, userId, name, email}` y una
+cabecera `Set-Cookie: refresh_token=...; HttpOnly`.
 
-3. Abre `http://localhost:5173` para ver el frontend (aún con páginas placeholder, listas para desarrollarse).
+⚠️ **El refresh token no aparece en el cuerpo.** Va solo en esa cookie. Para
+probar el refresco a mano hace falta un tarro de cookies:
+
+```bash
+curl -s -c /tmp/jar -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ana@test.com","password":"password123"}'
+
+curl -i -b /tmp/jar -X POST http://localhost:8080/api/auth/refresh   # sin cuerpo
+```
+
+Para llamar al resto de la API, pega el `accessToken` en `Authorization`:
+
+```bash
+curl http://localhost:8080/api/groups -H "Authorization: Bearer <accessToken>"
+```
 
 ---
 
@@ -184,6 +246,74 @@ Solo cambia el puerto del lado del host. Dentro de Docker Compose el backend
 sigue hablando con `postgres:5432` por la red interna, así que no hay que tocar
 nada más.
 
+## Cómo se manejan los usuarios
+
+No hay panel de administración ni usuarios semilla: **las cuentas se crean
+desde la propia aplicación**, y hay dos caminos.
+
+### 1. Registro abierto
+
+`POST /api/auth/register`, o el formulario en `/register`. Email único
+(normalizado a minúsculas: `Ana@x.com` y `ana@x.com` son la misma cuenta) y
+contraseña de 8 caracteres como mínimo, guardada con BCrypt.
+
+Quien se registra así **no pertenece a ningún grupo**: crea el suyo o espera
+una invitación.
+
+### 2. Registro con invitación
+
+Un miembro genera un link (`POST /api/groups/{id}/invitations`) y quien lo
+abre se registra y entra al grupo **en una sola petición**
+(`/register` con `invitationToken`). En una sola por atomicidad: con dos
+llamadas, un fallo entre ambas deja al usuario registrado y fuera del grupo.
+
+Los links son de **un solo uso** y caducan a los **7 días**. Para invitar a
+tres personas se generan tres links. Si se indica un email al crearlo, solo
+esa dirección puede aceptarlo.
+
+En el frontend, `/register?invitation=<token>` ya arrastra el token.
+
+### Roles dentro de un grupo
+
+Son **por grupo**, no globales: se puede ser administrador de uno y miembro
+raso de otro.
+
+| | Puede |
+|---|---|
+| **MEMBER** | Ver el grupo, registrar gastos, registrar y confirmar pagos suyos |
+| **ADMIN** | Todo lo anterior, más editar el grupo, invitar, expulsar y cambiar roles |
+
+Quien crea un grupo es su administrador. Dos reglas que la API impone y no se
+pueden saltar:
+
+- **Un grupo nunca se queda sin administrador.** Si pudiera, nadie podría
+  invitar, expulsar ni editarlo: quedaría congelado sin vía de recuperación.
+  El último miembro sí puede salir, porque ya no hay a quien dejar huérfano.
+- **Nadie sale de un grupo con saldo distinto de cero.** Los balances se
+  construyen a partir de la lista de miembros; si alguien con deuda deja de
+  serlo, sus gastos siguen en la base pero desaparecen del informe y los
+  balances de los que quedan dejan de sumar cero. El dinero se evaporaría.
+
+### Gestión de la propia cuenta
+
+- `GET /api/users/me` — perfil
+- `PATCH /api/users/me` — cambiar el nombre (el email no se cambia por esta vía)
+- `POST /api/users/me/password` — cambiar la contraseña, exigiendo la actual
+
+Cambiar la contraseña **revoca todas las sesiones abiertas, incluida la
+propia**. Quien la cambia suele hacerlo porque sospecha que alguien más tiene
+acceso; si las sesiones sobrevivieran, el intruso conservaría un refresh token
+válido durante treinta días.
+
+### Borrar un usuario
+
+**No hay endpoint, y es una decisión pendiente, no un olvido.** Borrar a
+alguien que aparece en gastos y liquidaciones rompería el histórico contable
+del grupo. Lo que hará falta es un borrado lógico que conserve los apuntes.
+Para pruebas, se limpia por SQL contra la base de desarrollo.
+
+---
+
 ## Autenticación
 
 Dos credenciales con responsabilidades distintas:
@@ -192,6 +322,20 @@ Dos credenciales con responsabilidades distintas:
 |---|---|---|---|
 | **Access token** | 15 min | JWT, sin estado | No |
 | **Refresh token** | 30 días | Valor opaco, con estado en BD | Sí |
+
+**Dónde vive cada uno en el cliente:** el access token, **en memoria** (se
+pierde al recargar, y es lo esperado). El refresh token, en una cookie
+`HttpOnly` acotada a `/api/auth` que ningún script puede leer.
+
+Guardar el access token en memoria y el refresh en `localStorage` sería
+seguridad de escaparate: lo que un XSS se lleva de ahí no es una credencial de
+15 minutos, sino una de 30 días y renovable. Por eso `AuthResponse` **no
+expone** `refreshToken`, y `/auth/refresh` y `/auth/logout` van **sin cuerpo**.
+
+> Si escribes un cliente propio, Axios necesita `withCredentials: true` o
+> `fetch` necesita `credentials: 'include'`. Sin eso la cookie no viaja entre
+> orígenes distintos y todo refresco falla con 401, con el síntoma
+> desconcertante de que la sesión se cae exactamente a los 15 minutos.
 
 El access token no se puede revocar, y por eso vive poco: su validez es el
 tiempo máximo que sobrevive una credencial robada. La capacidad de cortar una
@@ -232,7 +376,23 @@ y sus equivalentes de registro.
 
 ```bash
 cd backend
-./mvnw test
+./mvnw clean test          # suite completa (355 tests)
+./mvnw clean test -Dtest=NombreTest
+```
+
+⚠️ **Usa siempre `clean`.** La extensión de Java de VS Code compila dentro de
+`target/` con su procesador Lombok roto y deja ahí `.class` marcados como
+`Unresolved compilation problems`. Maven los da por buenos y `./mvnw test`
+falla con errores de compilación inventados sobre código que está perfecto. Es
+además lo que MapStruct necesita para regenerar los mappers.
+
+El frontend todavía no tiene suite propia (llega en la Fase 7). Mientras tanto:
+
+```bash
+cd frontend
+npx tsc --noEmit    # tipos
+npm run lint
+npm run build
 ```
 
 Los tests de integración levantan un **PostgreSQL 16 real con Testcontainers**,
@@ -273,22 +433,49 @@ splitwise-clone/
 └── docker-compose.yml
 ```
 
-## Ya está implementado (punto de partida)
+## Estado del proyecto
 
-- ✅ Modelo de datos completo (User, Group, GroupMember, Expense, ExpenseSplit, Settlement)
-- ✅ Registro y login con JWT
-- ✅ Crear grupos y agregar miembros
-- ✅ Registrar gastos con división en partes iguales
-- ✅ Cálculo de balances netos por usuario
-- ✅ **Algoritmo de simplificación de deudas** (con tests unitarios) — la parte más interesante del proyecto
-- ✅ Estructura base del frontend en React con routing
+El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-5 completadas.**
 
-## Lo que falta por construir
+### Backend: terminado
 
-- ⬜ Formularios reales en el frontend (Login, Register, crear grupo, agregar gasto) conectados a la API
-- ⬜ Dashboard visual con balances y gráficos
-- ⬜ Splits personalizados (no equitativos) por gasto
-- ⬜ Confirmar settlements (marcar deudas como pagadas)
-- ⬜ Categorías de gastos y filtros
-- ⬜ Tests de integración del backend
+- ✅ Modelo de datos, migraciones Flyway (7) y **355 tests** con PostgreSQL real
+- ✅ Autenticación de nivel producto: rotación de refresh tokens con detección
+  de reutilización, cookie `HttpOnly`, rate limiting por IP y por email
+- ✅ Grupos, roles, invitaciones por link de un solo uso
+- ✅ Gastos con los cuatro modos de reparto (EQUAL, EXACT, PERCENTAGE, SHARES),
+  categorías, filtros y paginación
+- ✅ Balances con desglose y liquidaciones con confirmación
+- ✅ **Simplificación de deudas** al mínimo de transacciones
+- ✅ OpenAPI/Swagger
+
+### Frontend: la base
+
+- ✅ Capa de API tipada con renovación transparente del token
+- ✅ Sesión, rutas protegidas y pantallas de acceso
+- ✅ Layout, componentes base y estados vacíos
+
+### Lo que falta
+
+- ⬜ **Fase 6** — Grupos y gastos en la interfaz: listado y detalle, crear
+  grupo, invitar, registrar gastos y repartos personalizados
+- ⬜ **Fase 7** — Dashboard de balances, liquidaciones sugeridas y analítica;
+  tests de frontend con Vitest
+- ⬜ **Fase 8** — Producción: CI, imagen de producción con nginx,
+  observabilidad, backups y despliegue
+
+### Deuda conocida
+
+- **Rate limiting en memoria.** Con varias réplicas el límite efectivo se
+  multiplica. Escalarlo es mover los buckets a Redis.
+- **`purgeExpired()` no lo llama nadie.** Existe en `RefreshTokenService` e
+  `InvitationService`, pero falta la tarea programada: ambas tablas crecen
+  indefinidamente.
+- **Códigos de creación inconsistentes.** `POST /groups` y
+  `POST /groups/{id}/expenses` devuelven 200; `/auth/register`,
+  `/invitations` y `/settlements` devuelven 201. El cliente no ramifica sobre
+  ello, así que unificarlo sigue siendo un cambio de una línea.
+- **Sin borrado de usuarios**, por lo dicho más arriba.
+- `SecurityConfig` avisa al arrancar sobre el `AuthenticationManager` global;
+  funciona, pero conviene limpiarlo.
 
