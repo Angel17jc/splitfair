@@ -3,6 +3,7 @@ import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Dashboard from '../pages/Dashboard'
 import NotFound from '../pages/NotFound'
+import Layout from '../components/Layout'
 import AnonymousRoute from './AnonymousRoute'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -18,7 +19,9 @@ export default function AppRoutes() {
       {/* Exigen sesion. Agrupadas para que anadir una pantalla privada no
           implique acordarse de protegerla: se cuelga de esta rama y ya. */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
       </Route>
 
       {/* La raiz lleva al dashboard, no al login: si hay sesion se entra

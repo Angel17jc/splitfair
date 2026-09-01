@@ -1,6 +1,9 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link, useLocation } from 'react-router-dom'
+import Button from '../components/Button'
+import Card from '../components/Card'
+import Input from '../components/Input'
 import { useAuth } from '../features/auth/useAuth'
 import { esquemaDeAcceso, type DatosDeAcceso } from '../features/auth/schemas'
 import { aplicarErrorDeApi } from '../utils/formularios'
@@ -39,7 +42,7 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+      <Card className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Iniciar sesion</h1>
         <p className="mt-1 text-sm text-slate-500">Entra para ver tus grupos y gastos.</p>
 
@@ -48,62 +51,33 @@ export default function Login() {
             pueden alinear con el resto de la interfaz. */}
         <form onSubmit={enviar} className="mt-6 space-y-4" noValidate>
           {errors.root && (
-            <p
-              role="alert"
-              className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
-            >
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
               {errors.root.message}
             </p>
           )}
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              autoFocus
-              aria-invalid={errors.email ? 'true' : undefined}
-              aria-describedby={errors.email ? 'error-email' : undefined}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-              {...register('email')}
-            />
-            {errors.email && (
-              <p id="error-email" role="alert" className="mt-1 text-sm text-red-600">
-                {errors.email.message}
-              </p>
-            )}
-          </div>
+          <Input
+            id="email"
+            etiqueta="Email"
+            type="email"
+            autoComplete="email"
+            autoFocus
+            error={errors.email?.message}
+            {...register('email')}
+          />
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-              Contrasena
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              aria-invalid={errors.password ? 'true' : undefined}
-              aria-describedby={errors.password ? 'error-password' : undefined}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-              {...register('password')}
-            />
-            {errors.password && (
-              <p id="error-password" role="alert" className="mt-1 text-sm text-red-600">
-                {errors.password.message}
-              </p>
-            )}
-          </div>
+          <Input
+            id="password"
+            etiqueta="Contrasena"
+            type="password"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            {...register('password')}
+          />
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-          >
+          <Button type="submit" ancho cargando={isSubmitting}>
             {isSubmitting ? 'Entrando...' : 'Entrar'}
-          </button>
+          </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-slate-500">
@@ -119,7 +93,7 @@ export default function Login() {
             Crear una
           </Link>
         </p>
-      </div>
+      </Card>
     </div>
   )
 }
