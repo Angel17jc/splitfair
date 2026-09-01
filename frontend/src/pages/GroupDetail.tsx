@@ -4,6 +4,8 @@ import Button from '../components/Button'
 import Card from '../components/Card'
 import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
+import CreateExpenseModal from '../features/expenses/CreateExpenseModal'
+import ExpenseList from '../features/expenses/ExpenseList'
 import InviteModal from '../features/groups/InviteModal'
 import { useGrupo } from '../features/groups/hooks'
 import { useAuth } from '../features/auth/useAuth'
@@ -12,6 +14,7 @@ export default function GroupDetail() {
   const { groupId } = useParams()
   const { usuario } = useAuth()
   const [invitando, setInvitando] = useState(false)
+  const [anadiendoGasto, setAnadiendoGasto] = useState(false)
   const { data: grupo, isPending, isError, error, refetch } = useGrupo(Number(groupId))
 
   if (isPending) {
@@ -47,7 +50,22 @@ export default function GroupDetail() {
         <p className="mt-1 text-xs text-slate-400">Creado por {grupo.createdByName}</p>
       </header>
 
-      <Card como="section">
+      {/*
+        Los gastos son lo que se viene a ver; los miembros, contexto. En
+        pantalla ancha van en columnas y en movil se apilan, con los gastos
+        primero.
+      */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ExpenseList
+            groupId={grupo.id}
+            moneda={grupo.currency}
+            miembros={grupo.members}
+            onAnadir={() => setAnadiendoGasto(true)}
+          />
+        </div>
+
+        <Card como="section" className="lg:col-span-1 lg:self-start">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium text-slate-900">
             Miembros{' '}
@@ -93,7 +111,15 @@ export default function GroupDetail() {
             </li>
           ))}
         </ul>
-      </Card>
+        </Card>
+      </div>
+
+      <CreateExpenseModal
+        abierto={anadiendoGasto}
+        onCerrar={() => setAnadiendoGasto(false)}
+        groupId={grupo.id}
+        miembros={grupo.members}
+      />
 
       <InviteModal
         abierto={invitando}
@@ -102,8 +128,7 @@ export default function GroupDetail() {
         nombreDelGrupo={grupo.name}
       />
 
-      {/* Gastos, balances y liquidaciones llegan en los commits siguientes de
-          esta fase y en la Fase 7. */}
+      {/* Balances y liquidaciones llegan en la Fase 7. */}
     </>
   )
 }

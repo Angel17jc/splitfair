@@ -64,3 +64,48 @@ export function describirSaldo(saldo: number, moneda: string): string {
       return 'Estas al dia'
   }
 }
+
+/**
+ * Lee un importe escrito por el usuario.
+ *
+ * Acepta coma **y** punto como separador decimal. En es-ES lo natural es
+ * escribir `10,50`, y un `<input type="number">` en un navegador configurado
+ * en espanol lo acepta pero `valueAsNumber` puede devolver NaN segun el
+ * locale; leer el texto y normalizarlo aqui evita depender de eso.
+ *
+ * Devuelve `null` si no es un importe valido de como mucho dos decimales. Se
+ * rechazan mas decimales en vez de redondearlos: redondear en silencio un
+ * `10,555` a `10,56` cambia lo que el usuario escribio sin decirselo, y en una
+ * aplicacion de dinero eso no es una comodidad.
+ */
+export function parsearImporte(texto: string): number | null {
+  const limpio = texto.trim().replace(',', '.')
+
+  if (!/^\d+(\.\d{1,2})?$/.test(limpio)) {
+    return null
+  }
+
+  const valor = Number(limpio)
+  return Number.isFinite(valor) && valor > 0 ? valor : null
+}
+
+/** Fecha de hoy en el formato `YYYY-MM-DD` que espera la API. */
+export function hoyISO(): string {
+  const ahora = new Date()
+  // No se usa toISOString(): convierte a UTC y, en husos al oeste de
+  // Greenwich, por la tarde ya devuelve el dia siguiente. El gasto quedaria
+  // fechado manana.
+  const mes = String(ahora.getMonth() + 1).padStart(2, '0')
+  const dia = String(ahora.getDate()).padStart(2, '0')
+  return `${ahora.getFullYear()}-${mes}-${dia}`
+}
+
+/** `2026-08-31` -> `31 ago 2026`. Sin husos: es solo un dia, no un instante. */
+export function formatearFecha(iso: string): string {
+  const [ano, mes, dia] = iso.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(ano, mes - 1, dia))
+}
