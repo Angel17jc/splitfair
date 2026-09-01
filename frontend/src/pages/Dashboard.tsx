@@ -4,6 +4,7 @@ import EmptyState from '../components/EmptyState'
 import ErrorState from '../components/ErrorState'
 import Modal from '../components/Modal'
 import Skeleton from '../components/Skeleton'
+import CreateGroupModal from '../features/groups/CreateGroupModal'
 import GroupCard from '../features/groups/GroupCard'
 import { useGrupos } from '../features/groups/hooks'
 import { useAuth } from '../features/auth/useAuth'
@@ -12,6 +13,7 @@ export default function Dashboard() {
   const { usuario } = useAuth()
   const [pagina, setPagina] = useState(0)
   const [explicando, setExplicando] = useState(false)
+  const [creando, setCreando] = useState(false)
 
   const { data, isPending, isError, error, isFetching, refetch } = useGrupos({
     page: pagina,
@@ -20,9 +22,12 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Mis grupos</h1>
-        <p className="mt-1 text-sm text-slate-500">Hola, {usuario?.name}.</p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Mis grupos</h1>
+          <p className="mt-1 text-sm text-slate-500">Hola, {usuario?.name}.</p>
+        </div>
+        <Button onClick={() => setCreando(true)}>Nuevo grupo</Button>
       </div>
 
       {isPending ? (
@@ -34,9 +39,12 @@ export default function Dashboard() {
           titulo="Todavia no tienes ningun grupo"
           descripcion="Un grupo es donde se registran los gastos compartidos y se calcula quien debe a quien."
           accion={
-            <Button variante="secundario" onClick={() => setExplicando(true)}>
-              Como funciona
-            </Button>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Button onClick={() => setCreando(true)}>Crear mi primer grupo</Button>
+              <Button variante="secundario" onClick={() => setExplicando(true)}>
+                Como funciona
+              </Button>
+            </div>
           }
         />
       ) : (
@@ -79,6 +87,8 @@ export default function Dashboard() {
           )}
         </>
       )}
+
+      <CreateGroupModal abierto={creando} onCerrar={() => setCreando(false)} />
 
       <Modal
         abierto={explicando}

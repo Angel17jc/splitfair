@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import Button from '../components/Button'
 import Card from '../components/Card'
 import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
+import InviteModal from '../features/groups/InviteModal'
 import { useGrupo } from '../features/groups/hooks'
 import { useAuth } from '../features/auth/useAuth'
 
 export default function GroupDetail() {
   const { groupId } = useParams()
   const { usuario } = useAuth()
+  const [invitando, setInvitando] = useState(false)
   const { data: grupo, isPending, isError, error, refetch } = useGrupo(Number(groupId))
 
   if (isPending) {
@@ -22,6 +26,9 @@ export default function GroupDetail() {
       </>
     )
   }
+
+  const soyAdministrador =
+    grupo.members.find((m) => m.userId === usuario?.userId)?.role === 'ADMIN'
 
   return (
     <>
@@ -41,10 +48,22 @@ export default function GroupDetail() {
       </header>
 
       <Card como="section">
-        <h2 className="text-base font-medium text-slate-900">
-          Miembros{' '}
-          <span className="font-normal text-slate-400">({grupo.members.length})</span>
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-medium text-slate-900">
+            Miembros{' '}
+            <span className="font-normal text-slate-400">({grupo.members.length})</span>
+          </h2>
+          {/*
+            El boton solo existe para administradores porque solo ellos pueden
+            invitar. Mostrarlo a todos y dejar que el backend responda 403
+            seria ensenar una puerta que no abre.
+          */}
+          {soyAdministrador && (
+            <Button variante="secundario" onClick={() => setInvitando(true)}>
+              Invitar
+            </Button>
+          )}
+        </div>
 
         <ul className="mt-4 divide-y divide-slate-100">
           {grupo.members.map((miembro) => (
@@ -75,6 +94,13 @@ export default function GroupDetail() {
           ))}
         </ul>
       </Card>
+
+      <InviteModal
+        abierto={invitando}
+        onCerrar={() => setInvitando(false)}
+        groupId={grupo.id}
+        nombreDelGrupo={grupo.name}
+      />
 
       {/* Gastos, balances y liquidaciones llegan en los commits siguientes de
           esta fase y en la Fase 7. */}

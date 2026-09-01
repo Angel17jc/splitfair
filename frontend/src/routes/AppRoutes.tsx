@@ -3,6 +3,7 @@ import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Dashboard from '../pages/Dashboard'
 import GroupDetail from '../pages/GroupDetail'
+import InvitationLanding from '../pages/InvitationLanding'
 import NotFound from '../pages/NotFound'
 import Layout from '../components/Layout'
 import AnonymousRoute from './AnonymousRoute'
@@ -11,6 +12,14 @@ import ProtectedRoute from './ProtectedRoute'
 export default function AppRoutes() {
   return (
     <Routes>
+      {/*
+        Publica de verdad: ni exige sesion ni la prohibe. Quien abre el link
+        puede no tener cuenta todavia, y quien ya la tiene debe poder aceptar
+        sin salir. Colgarla de cualquiera de las dos guardas dejaria fuera a
+        la mitad de los invitados.
+      */}
+      <Route path="/invitacion/:token" element={<InvitationLanding />} />
+
       {/* Solo para quien no ha entrado. */}
       <Route element={<AnonymousRoute />}>
         <Route path="/login" element={<Login />} />
