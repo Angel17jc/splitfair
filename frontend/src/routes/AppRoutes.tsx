@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Dashboard from '../pages/Dashboard'
+import GroupDetail from '../pages/GroupDetail'
 import NotFound from '../pages/NotFound'
 import Layout from '../components/Layout'
 import AnonymousRoute from './AnonymousRoute'
@@ -21,6 +22,7 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/grupos/:groupId" element={<GroupDetail />} />
         </Route>
       </Route>
 
