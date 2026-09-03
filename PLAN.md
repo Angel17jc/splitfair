@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-5 **completadas** (32 commits, 355 tests de backend en verde) · siguiente: Fase 6
+- **Estado:** Fases 0-6 **completadas** (37 commits, 355 tests de backend en verde) · siguiente: Fase 7
 
 ---
 
@@ -465,7 +465,37 @@ vez se hace **un** refresco y las cinco se reintentan.
    - Actualización optimista con reversión si el servidor rechaza.
 
 **Criterio de cierre:** flujo completo end-to-end — crear grupo, invitar, registrar gasto, ver
-el reparto correcto.
+el reparto correcto. ✅ **Cumplido y medido** en navegador: Ana crea un grupo en EUR, genera un
+link, Beto se registra desde él y entra al grupo en la misma petición, y los repartos EXACT,
+PERCENTAGE y SHARES quedan guardados sumando exactamente el importe.
+
+**Hallazgos durante la ejecución:**
+
+- **El cuadre de un reparto no se puede comprobar en coma flotante.** Sumar los importes con `+`
+  y compararlos con el total marca como descuadrado un reparto perfectamente válido:
+  `33,33 + 33,33 + 33,34` da `100.00000000000001`. El usuario vería un error inexistente y sin
+  forma de corregirlo, porque lo que escribió es correcto. Se compara en **céntimos enteros**,
+  la misma decisión que toma `MoneySplitter` en el backend.
+- **La actualización optimista tiene un límite que no se puede cruzar.** Solo adelanta lo que el
+  cliente ya sabe: descripción, importe total, fecha, categoría y a cuántos afecta. Nunca cuánto
+  le toca a cada uno, porque eso exigiría dividir en coma flotante y enseñar cifras que pueden
+  diferir en un céntimo de las guardadas. Por lo mismo el saldo del dashboard **no** se adelanta:
+  mejor un saldo que tarda que un saldo inventado.
+- **Anotar un gasto cambia dos cosas, no una.** Además de los gastos del grupo, mueve el
+  `myBalance` que trae cada fila del dashboard. Sin esa segunda invalidación el usuario vuelve
+  atrás y ve su saldo anterior, que es peor que verlo cargando: parece un dato bueno. Medido:
+  287,50 € pasan a 293,75 € tras anotar 12,50 € entre dos.
+- **La lista de monedas no es una preferencia.** Solo las de dos decimales; el backend rechaza
+  las demás con 400 porque el reparto trabaja en céntimos y el esquema guarda `NUMERIC(12,2)`.
+  Comprobado una a una contra la API: las catorce ofrecidas devuelven 200, CLP y JPY dan 400.
+- **El scroll infinito necesita además un botón.** Solo hay scroll si la página se desplaza, y
+  quien navega con teclado o lector de pantalla puede llegar al final sin provocar ninguno: para
+  esa persona la lista se acaba antes de tiempo y nada indica que falte algo.
+- **`Expense` trae `paidByName` pero no `paidByUserId`.** No hay forma fiable de saber si el
+  usuario actual pagó un gasto —dos miembros pueden llamarse igual—, y hará falta para ofrecer
+  editar y borrar, que son del pagador o de un administrador. Pendiente para cuando toque.
+- El listado de gastos viene ordenado por fecha descendente, y el de grupos del más reciente al
+  más antiguo. No estaba documentado; se comprobó contra la API.
 
 ---
 

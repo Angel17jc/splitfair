@@ -435,7 +435,7 @@ splitwise-clone/
 
 ## Estado del proyecto
 
-El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-5 completadas.**
+El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-6 completadas.**
 
 ### Backend: terminado
 
@@ -449,16 +449,17 @@ El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-5 completadas.**
 - ✅ **Simplificación de deudas** al mínimo de transacciones
 - ✅ OpenAPI/Swagger
 
-### Frontend: la base
+### Frontend
 
 - ✅ Capa de API tipada con renovación transparente del token
 - ✅ Sesión, rutas protegidas y pantallas de acceso
 - ✅ Layout, componentes base y estados vacíos
+- ✅ Listado y detalle de grupos, con el saldo propio en cada uno
+- ✅ Crear grupo, invitar por link y pantalla pública de aceptación
+- ✅ Gastos con filtros, scroll infinito y los cuatro modos de reparto
 
 ### Lo que falta
 
-- ⬜ **Fase 6** — Grupos y gastos en la interfaz: listado y detalle, crear
-  grupo, invitar, registrar gastos y repartos personalizados
 - ⬜ **Fase 7** — Dashboard de balances, liquidaciones sugeridas y analítica;
   tests de frontend con Vitest
 - ⬜ **Fase 8** — Producción: CI, imagen de producción con nginx,
