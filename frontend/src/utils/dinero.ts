@@ -109,3 +109,21 @@ export function formatearFecha(iso: string): string {
     year: 'numeric',
   }).format(new Date(ano, mes - 1, dia))
 }
+
+/**
+ * Formatea un instante UTC (`...Z`) como fecha y hora locales.
+ *
+ * Solo para los campos que **si** llevan zona: `createdAt` y `settledAt` de
+ * las liquidaciones, y `expiresAt` de las invitaciones. Usarlo con el
+ * `createdAt` de un grupo, que viene sin zona, desplazaria la hora tantas
+ * horas como diga el huso del navegador.
+ */
+export function formatearInstante(iso: string): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
+}

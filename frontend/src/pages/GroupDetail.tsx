@@ -5,6 +5,7 @@ import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
 import MembersBalances from '../features/balances/MembersBalances'
 import MyBalanceSummary from '../features/balances/MyBalanceSummary'
+import SettlementsPanel from '../features/balances/SettlementsPanel'
 import { useBalances } from '../features/balances/hooks'
 import CreateExpenseModal from '../features/expenses/CreateExpenseModal'
 import ExpenseList from '../features/expenses/ExpenseList'
@@ -81,16 +82,30 @@ export default function GroupDetail() {
           />
         </div>
 
-        <MembersBalances
-          balances={balances.data?.balances}
-          miembros={grupo.members}
-          moneda={grupo.currency}
-          miId={usuario?.userId}
-          cargando={balances.isPending}
-          error={balances.isError ? balances.error : null}
-          onReintentar={() => balances.refetch()}
-          onInvitar={soyAdministrador ? () => setInvitando(true) : undefined}
-        />
+        {/*
+          Balances y liquidaciones van juntos y a la derecha: el primero dice
+          como esta el grupo y el segundo, que hacer al respecto. Separarlos
+          obligaria a mirar arriba y abajo para responder a la misma pregunta.
+        */}
+        <div className="space-y-6 lg:self-start">
+          <MembersBalances
+            balances={balances.data?.balances}
+            miembros={grupo.members}
+            moneda={grupo.currency}
+            miId={usuario?.userId}
+            cargando={balances.isPending}
+            error={balances.isError ? balances.error : null}
+            onReintentar={() => balances.refetch()}
+            onInvitar={soyAdministrador ? () => setInvitando(true) : undefined}
+          />
+
+          <SettlementsPanel
+            groupId={grupo.id}
+            moneda={grupo.currency}
+            miId={usuario?.userId}
+            soyAdministrador={soyAdministrador}
+          />
+        </div>
       </div>
 
       <CreateExpenseModal
@@ -107,7 +122,6 @@ export default function GroupDetail() {
         nombreDelGrupo={grupo.name}
       />
 
-      {/* Las liquidaciones llegan en el commit siguiente. */}
     </>
   )
 }

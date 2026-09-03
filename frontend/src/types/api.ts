@@ -23,9 +23,11 @@
  *
  * ## Hay dos formas de fecha distintas
  *
- * - `expiresAt` de las invitaciones es un instante UTC: `2026-09-04T04:32:47.900208Z`.
- * - `createdAt` de grupos y liquidaciones es una fecha-hora **sin zona**:
+ * - `expiresAt` de las invitaciones y `createdAt`/`settledAt` de las
+ *   liquidaciones son instantes UTC, con `Z`: `2026-09-03T03:22:35.218760Z`.
+ * - `createdAt` de grupos y usuarios es una fecha-hora **sin zona**:
  *   `2026-08-31T22:23:40.814808`. `new Date()` la interpreta como hora local.
+ *   Comprobado contra la API: no son la misma forma, aunque se llamen igual.
  * - `expenseDate` es solo el dia: `2026-08-28`.
  */
 
