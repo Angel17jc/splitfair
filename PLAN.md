@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-7 **completadas** (43 commits · 365 tests de backend y 49 de frontend, todos en verde) · siguiente: Fase 8
+- **Estado:** Fases 0-7 **completadas** (54 commits · 365 tests de backend y 49 de frontend, todos en verde) · siguiente: Fase 8
 
 ---
 
