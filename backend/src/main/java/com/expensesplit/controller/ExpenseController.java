@@ -2,11 +2,13 @@ package com.expensesplit.controller;
 
 import com.expensesplit.dto.request.CreateExpenseRequest;
 import com.expensesplit.dto.request.UpdateExpenseRequest;
+import com.expensesplit.dto.response.GroupAnalyticsResponse;
 import com.expensesplit.dto.response.GroupBalanceResponse;
 import com.expensesplit.dto.response.ExpenseResponse;
 import com.expensesplit.dto.response.PagedResponse;
 import com.expensesplit.dto.response.SettlementSuggestionResponse;
 import com.expensesplit.model.ExpenseCategory;
+import com.expensesplit.service.AnalyticsService;
 import com.expensesplit.service.ExpenseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,7 @@ public class ExpenseController {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final ExpenseService expenseService;
+    private final AnalyticsService analyticsService;
 
     @PostMapping("/api/groups/{groupId}/expenses")
     public ExpenseResponse createExpense(@PathVariable Long groupId,
@@ -85,6 +88,19 @@ public class ExpenseController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteExpense(@PathVariable Long expenseId, Authentication authentication) {
         expenseService.deleteExpense(expenseId, authentication.getName());
+    }
+
+    /**
+     * Reparto del gasto por categoria y por mes.
+     *
+     * <p>Existe para que el cliente no tenga que recorrer todas las paginas de
+     * gastos y sumarlas: sobre un listado paginado saldrian totales parciales,
+     * y sumar dinero en JavaScript es sumar en coma flotante.
+     */
+    @GetMapping("/api/groups/{groupId}/analytics")
+    public GroupAnalyticsResponse getAnalytics(@PathVariable Long groupId,
+                                                 Authentication authentication) {
+        return analyticsService.getGroupAnalytics(groupId, authentication.getName());
     }
 
     @GetMapping("/api/groups/{groupId}/balances")

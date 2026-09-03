@@ -2,7 +2,9 @@ package com.expensesplit.repository;
 
 import com.expensesplit.model.Expense;
 import com.expensesplit.model.ExpenseCategory;
+import com.expensesplit.repository.projection.CategoryAmount;
 import com.expensesplit.repository.projection.GroupAmount;
+import com.expensesplit.repository.projection.MonthAmount;
 import com.expensesplit.repository.projection.UserAmount;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -99,4 +101,35 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             """)
     List<GroupAmount> sumPaidByUserPerGroup(@Param("userId") Long userId,
                                             @Param("groupIds") Collection<Long> groupIds);
+
+    /**
+     * Gasto acumulado por categoria. Solo salen las categorias con gasto: una
+     * fila a cero no aporta nada y obligaria a filtrarla despues.
+     */
+    @Query("""
+            SELECT new com.expensesplit.repository.projection.CategoryAmount(
+                e.category, SUM(e.amount), COUNT(e))
+            FROM Expense e
+            WHERE e.group.id = :groupId
+            GROUP BY e.category
+            ORDER BY SUM(e.amount) DESC
+            """)
+    List<CategoryAmount> sumByCategory(@Param("groupId") Long groupId);
+
+    /**
+     * Gasto acumulado por mes natural, del mas antiguo al mas reciente.
+     *
+     * <p>Se agrupa por ano y mes con las funciones estandar de HQL en vez de
+     * formatear la fecha en SQL: asi la consulta no depende del dialecto y el
+     * orden es numerico, no alfabetico.
+     */
+    @Query("""
+            SELECT new com.expensesplit.repository.projection.MonthAmount(
+                YEAR(e.expenseDate), MONTH(e.expenseDate), SUM(e.amount), COUNT(e))
+            FROM Expense e
+            WHERE e.group.id = :groupId
+            GROUP BY YEAR(e.expenseDate), MONTH(e.expenseDate)
+            ORDER BY YEAR(e.expenseDate), MONTH(e.expenseDate)
+            """)
+    List<MonthAmount> sumByMonth(@Param("groupId") Long groupId);
 }
