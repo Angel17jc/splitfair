@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,36 +8,52 @@ import Modal from '../../components/Modal'
 import Select from '../../components/Select'
 import { aplicarErrorDeApi } from '../../utils/formularios'
 import { hoyISO, parsearImporte } from '../../utils/dinero'
-import { CATEGORIAS, type GroupMember } from '../../types/api'
+import { CATEGORIAS, TIPOS_DE_REPARTO, type GroupMember, type SplitInput } from '../../types/api'
 import { ETIQUETA_DE_CATEGORIA } from './categorias'
+import { aCentimos, comprobarCuadre, MODOS_DE_REPARTO } from './reparto'
+import SplitEditor from './SplitEditor'
 import { useCrearGasto } from './hooks'
 
-/**
- * El importe se valida como **texto**, no con `z.number()`.
- *
- * Asi se acepta la coma decimal —lo natural al escribir en espanol— y se
- * rechazan los importes con mas de dos decimales en vez de redondearlos en
- * silencio. Redondear un `10,555` a `10,56` cambia lo que el usuario escribio
- * sin decirselo, y en una aplicacion de dinero eso no es una comodidad.
- */
-const esquema = z.object({
-  description: z
-    .string()
-    .trim()
-    .min(1, 'Describe el gasto')
-    .max(255, 'La descripcion es demasiado larga'),
-  amount: z
-    .string()
-    .min(1, 'Indica el importe')
-    .refine((texto) => parsearImporte(texto) !== null, {
-      message: 'Importe no valido. Usa como maximo dos decimales, por ejemplo 12,50',
-    }),
-  expenseDate: z.string().min(1, 'Indica la fecha'),
-  category: z.enum(CATEGORIAS),
-  participantes: z
-    .array(z.number())
-    .min(1, 'Elige al menos una persona entre las que repartir'),
-})
+const esquema = z
+  .object({
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Describe el gasto')
+      .max(255, 'La descripcion es demasiado larga'),
+    amount: z
+      .string()
+      .min(1, 'Indica el importe')
+      .refine((texto) => parsearImporte(texto) !== null, {
+        message: 'Importe no valido. Usa como maximo dos decimales, por ejemplo 12,50',
+      }),
+    expenseDate: z.string().min(1, 'Indica la fecha'),
+    category: z.enum(CATEGORIAS),
+    splitType: z.enum(TIPOS_DE_REPARTO),
+    participantes: z
+      .array(z.number())
+      .min(1, 'Elige al menos una persona entre las que repartir'),
+    valores: z.record(z.string()),
+  })
+  /**
+   * El cuadre depende de tres campos a la vez —modo, importe y valores— asi
+   * que no puede validarse campo a campo. Se comprueba aqui, sobre el objeto
+   * completo, y con la misma funcion que alimenta el indicador en vivo: una
+   * sola definicion de "cuadra", en vez de dos que pueden discrepar.
+   */
+  .superRefine((datos, ctx) => {
+    if (datos.splitType === 'EQUAL') return
+
+    const total = aCentimos(datos.amount)
+    if (total === null) return // ya hay un error en el importe
+
+    const valores = datos.participantes.map((id) => datos.valores[String(id)] ?? '')
+    const cuadre = comprobarCuadre(datos.splitType, valores, total)
+
+    if (!cuadre.valido) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['valores'], message: cuadre.mensaje })
+    }
+  })
 
 type Datos = z.infer<typeof esquema>
 
@@ -52,7 +68,20 @@ interface Props {
 
 export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembros }: Props) {
   const crear = useCrearGasto(groupId)
-  const todos = miembros.map((m) => m.userId)
+
+  const porDefecto = useMemo(
+    () => ({
+      description: '',
+      amount: '',
+      expenseDate: hoyISO(),
+      category: 'OTROS' as const,
+      splitType: 'EQUAL' as const,
+      // Por defecto se reparte entre todos, que es el caso habitual.
+      participantes: miembros.map((m) => m.userId),
+      valores: {} as Record<string, string>,
+    }),
+    [miembros],
+  )
 
   const {
     register,
@@ -62,46 +91,57 @@ export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembro
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<Datos>({
-    resolver: zodResolver(esquema),
-    defaultValues: {
-      description: '',
-      amount: '',
-      expenseDate: hoyISO(),
-      category: 'OTROS',
-      // Por defecto se reparte entre todos, que es el caso habitual.
-      participantes: todos,
-    },
-  })
+  } = useForm<Datos>({ resolver: zodResolver(esquema), defaultValues: porDefecto })
 
+  const splitType = watch('splitType')
   const participantes = watch('participantes')
+  const valores = watch('valores')
+  const amount = watch('amount')
+
+  /** El mismo calculo que valida el envio, para mostrarlo mientras se escribe. */
+  const cuadre = useMemo(() => {
+    const total = aCentimos(amount) ?? 0
+    return comprobarCuadre(
+      splitType,
+      participantes.map((id) => valores[String(id)] ?? ''),
+      total,
+    )
+  }, [splitType, participantes, valores, amount])
 
   useEffect(() => {
-    if (!abierto) {
-      reset({
-        description: '',
-        amount: '',
-        expenseDate: hoyISO(),
-        category: 'OTROS',
-        participantes: miembros.map((m) => m.userId),
-      })
-    }
+    if (!abierto) reset(porDefecto)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto])
 
   const alternar = (userId: number) => {
+    const dentro = participantes.includes(userId)
     setValue(
       'participantes',
-      participantes.includes(userId)
-        ? participantes.filter((id) => id !== userId)
-        : [...participantes, userId],
+      dentro ? participantes.filter((id) => id !== userId) : [...participantes, userId],
       { shouldValidate: true },
     )
+    if (dentro) {
+      // Se limpia su importe al salir: dejarlo ahi haria que al volver a
+      // marcarle reapareciera una cifra que el usuario ya habia descartado.
+      const { [String(userId)]: _fuera, ...resto } = valores
+      setValue('valores', resto, { shouldValidate: true })
+    }
   }
 
   const enviar = handleSubmit(async (datos) => {
     const importe = parsearImporte(datos.amount)
     if (importe === null) return
+
+    // Para EQUAL basta la lista de participantes; el backend reparte por mayor
+    // residuo. Para los demas modos se envia el valor de cada uno, y es el
+    // backend quien lo convierte en importes: aqui no se calcula dinero.
+    const splits: SplitInput[] | undefined =
+      datos.splitType === 'EQUAL'
+        ? undefined
+        : datos.participantes.map((userId) => ({
+            userId,
+            value: Number(String(datos.valores[String(userId)]).replace(',', '.')),
+          }))
 
     try {
       await crear.mutateAsync({
@@ -109,16 +149,26 @@ export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembro
         amount: importe,
         expenseDate: datos.expenseDate,
         category: datos.category,
-        // EQUAL con la lista de participantes: el backend reparte por mayor
-        // residuo y garantiza que las partes suman exactamente el importe.
-        splitType: 'EQUAL',
-        splitBetweenUserIds: datos.participantes,
+        splitType: datos.splitType,
+        ...(splits ? { splits } : { splitBetweenUserIds: datos.participantes }),
       })
       onCerrar()
     } catch (error) {
       aplicarErrorDeApi(error, setError, CAMPOS)
     }
   })
+
+  /*
+    El error de `valores` lo pone superRefine sobre un campo que es un mapa, y
+    react-hook-form lo tipa como si pudiera anidar errores por clave. Se
+    extrae el texto con una comprobacion explicita en vez de forzar el tipo:
+    un cast aqui compilaria igual y se rompe en silencio el dia que el
+    error deje de ser plano.
+  */
+  const errorDeValores = errors.valores?.message
+  const mensajeDelReparto =
+    errors.participantes?.message ??
+    (typeof errorDeValores === 'string' ? errorDeValores : undefined)
 
   return (
     <Modal
@@ -172,42 +222,41 @@ export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembro
           />
         </div>
 
-        <Select etiqueta="Categoria" error={errors.category?.message} {...register('category')}>
-          {CATEGORIAS.map((categoria) => (
-            <option key={categoria} value={categoria}>
-              {ETIQUETA_DE_CATEGORIA[categoria]}
-            </option>
-          ))}
-        </Select>
-
-        <fieldset>
-          <legend className="text-sm font-medium text-slate-700">Repartir entre</legend>
-          <div className="mt-2 space-y-1.5">
-            {miembros.map((miembro) => (
-              <label
-                key={miembro.userId}
-                className="flex cursor-pointer items-center gap-2 text-sm text-slate-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={participantes.includes(miembro.userId)}
-                  onChange={() => alternar(miembro.userId)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                />
-                {miembro.name}
-              </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select etiqueta="Categoria" error={errors.category?.message} {...register('category')}>
+            {CATEGORIAS.map((categoria) => (
+              <option key={categoria} value={categoria}>
+                {ETIQUETA_DE_CATEGORIA[categoria]}
+              </option>
             ))}
-          </div>
-          {errors.participantes && (
-            <p role="alert" className="mt-1 text-sm text-red-600">
-              {errors.participantes.message}
-            </p>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            Se reparte a partes iguales. Los repartos personalizados llegan en la siguiente
-            entrega.
+          </Select>
+
+          <Select etiqueta="Como se reparte" {...register('splitType')}>
+            {TIPOS_DE_REPARTO.map((tipo) => (
+              <option key={tipo} value={tipo}>
+                {MODOS_DE_REPARTO[tipo].etiqueta}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <SplitEditor
+          tipo={splitType}
+          miembros={miembros}
+          participantes={participantes}
+          valores={valores}
+          cuadre={cuadre}
+          onAlternar={alternar}
+          onValor={(userId, valor) =>
+            setValue('valores', { ...valores, [String(userId)]: valor }, { shouldValidate: true })
+          }
+        />
+
+        {mensajeDelReparto && (
+          <p role="alert" className="text-sm text-red-600">
+            {mensajeDelReparto}
           </p>
-        </fieldset>
+        )}
       </form>
     </Modal>
   )

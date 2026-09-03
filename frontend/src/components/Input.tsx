@@ -6,6 +6,15 @@ interface Props extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
   /** Ayuda breve. Se oculta cuando hay error, para no competir con el. */
   ayuda?: string
+  /**
+   * Oculta la etiqueta visualmente, pero **no** para un lector de pantalla.
+   *
+   * Para filas compactas donde el nombre del campo ya se deduce del contexto
+   * visual —una columna de importes junto a cada persona— pero seguiria
+   * siendo indescifrable sin verla. Nunca se prescinde de la etiqueta: se
+   * prescinde de mostrarla.
+   */
+  etiquetaOculta?: boolean
 }
 
 /**
@@ -23,7 +32,7 @@ interface Props extends InputHTMLAttributes<HTMLInputElement> {
  * anuncia sobre otro.
  */
 const Input = forwardRef<HTMLInputElement, Props>(function Input(
-  { etiqueta, error, ayuda, id, className = '', ...resto },
+  { etiqueta, error, ayuda, etiquetaOculta = false, id, className = '', ...resto },
   ref,
 ) {
   const generado = useId()
@@ -33,7 +42,12 @@ const Input = forwardRef<HTMLInputElement, Props>(function Input(
 
   return (
     <div>
-      <label htmlFor={idCampo} className="block text-sm font-medium text-slate-700">
+      <label
+        htmlFor={idCampo}
+        className={
+          etiquetaOculta ? 'sr-only' : 'block text-sm font-medium text-slate-700'
+        }
+      >
         {etiqueta}
       </label>
 
@@ -46,7 +60,8 @@ const Input = forwardRef<HTMLInputElement, Props>(function Input(
         // ha incumplido.
         aria-describedby={error ? idError : ayuda ? idAyuda : undefined}
         className={
-          'mt-1 w-full rounded-md border px-3 py-2 text-sm outline-none ' +
+          (etiquetaOculta ? '' : 'mt-1 ') +
+          'w-full rounded-md border px-3 py-2 text-sm outline-none ' +
           'focus:ring-1 disabled:bg-slate-50 ' +
           (error
             ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
