@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-6 **completadas** (37 commits, 355 tests de backend en verde) · siguiente: Fase 7
+- **Estado:** Fases 0-7 **completadas** (43 commits · 365 tests de backend y 49 de frontend, todos en verde) · siguiente: Fase 8
 
 ---
 
@@ -521,7 +521,35 @@ PERCENTAGE y SHARES quedan guardados sumando exactamente el importe.
    - Vitest + Testing Library sobre formularios, cálculo mostrado y rutas protegidas.
 
 **Criterio de cierre:** el dashboard refleja los balances reales y confirmar una liquidación
-los actualiza al instante.
+los actualiza al instante. ✅ **Cumplido y medido** con dos usuarios reales en navegador: Beto ve
+"Debes 50,00 €", registra el pago, y su saldo **no** se mueve porque está pendiente; Ana lo
+confirma y el suyo pasa a "Estás al día" con el grupo saldado.
+
+**Hallazgos durante la ejecución:**
+
+- **La analítica no se podía resolver en el cliente, y el plan lo daba por hecho.** Con el
+  listado paginado, sumar lo cargado daría totales parciales presentados como completos; sumar
+  todas las páginas significaría sumar dinero en coma flotante. Salió un commit de backend no
+  previsto: agregación en SQL, como los balances.
+- **El ejemplo del error de coma flotante que se citaba desde la Fase 6 era falso.**
+  `33,33 + 33,33 + 33,34` da exactamente 100; lo descubrió el test al escribirlo, fallando. El
+  principio se sostiene y el código siempre fue correcto, pero hacía falta un caso real, y lo
+  hay: `8,20 + 0,10 + 1,70` da `9.999999999999998` en vez de `10,00`. Quedan mensajes de commit
+  de la Fase 6 con la versión equivocada.
+- **La guía de visualización evitó el error obvio.** Ocho categorías pedían ocho colores; la
+  respuesta correcta es **uno**, porque la longitud de la barra ya codifica la magnitud y un
+  degradado por valor codifica dos veces lo mismo. Al validar la rampa de ocho pasos con el
+  comprobador de paleta, **falló**: los escalones quedaban demasiado juntos en luminosidad.
+- **Una medida no sustituye a mirar.** La comprobación de que las tablas accesibles estaban
+  ocultas (`width <= 1`) daba falso: una `<table>` con `width:1px` se expande por su contenido
+  aunque quede recortada. Solo la captura lo confirmó.
+- **`Settlement` sí trae `paidByUserId` y `paidToUserId`**, al contrario que `Expense`. Por eso
+  los permisos de confirmar y cancelar se deciden con fiabilidad y los de editar un gasto,
+  todavía no.
+- **`createdAt` no tiene la misma forma en todas partes.** El de las liquidaciones viene con `Z`
+  (instante UTC); el de los grupos, sin zona. Estaba anotado al revés.
+- Una mutación que no rompe nada no demuestra nada: el primer intento de mutar el cuadre a coma
+  flotante llevaba un `Math.round` que corregía justo el error que pretendía introducir.
 
 ---
 

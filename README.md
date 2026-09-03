@@ -444,7 +444,7 @@ splitwise-clone/
 
 ## Estado del proyecto
 
-El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-6 completadas.**
+El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-7 completadas.**
 
 ### Backend: terminado
 
@@ -466,11 +466,12 @@ El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-6 completadas.**
 - ✅ Listado y detalle de grupos, con el saldo propio en cada uno
 - ✅ Crear grupo, invitar por link y pantalla pública de aceptación
 - ✅ Gastos con filtros, scroll infinito y los cuatro modos de reparto
+- ✅ Balances con desglose, liquidaciones sugeridas y confirmación de pagos
+- ✅ Analítica del gasto por categoría y por mes
+- ✅ **49 tests** con Vitest + Testing Library
 
 ### Lo que falta
 
-- ⬜ **Fase 7** — Dashboard de balances, liquidaciones sugeridas y analítica;
-  tests de frontend con Vitest
 - ⬜ **Fase 8** — Producción: CI, imagen de producción con nginx,
   observabilidad, backups y despliegue
 
