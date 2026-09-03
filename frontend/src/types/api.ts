@@ -309,3 +309,35 @@ export interface PageParams {
   page?: number
   size?: number
 }
+
+// --- analitica --------------------------------------------------------------
+
+export interface CategoryTotal {
+  category: Category
+  total: number
+  /** Cuantos gastos suman ese total. */
+  count: number
+}
+
+export interface MonthTotal {
+  /** Mes natural, `YYYY-MM`. Viene con cero a la izquierda para que ordene bien. */
+  month: string
+  total: number
+  count: number
+}
+
+/**
+ * Reparto del gasto del grupo, agregado por el backend.
+ *
+ * Se pide en vez de sumarlo aqui por dos razones: el listado de gastos esta
+ * paginado —sumar lo cargado daria totales parciales con pinta de completos— y
+ * sumar dinero en JavaScript es sumar en coma flotante.
+ */
+export interface GroupAnalytics {
+  currency: string
+  totalSpent: number
+  /** Solo las categorias con gasto, de mayor a menor. */
+  byCategory: CategoryTotal[]
+  /** Meses con gasto, del mas antiguo al mas reciente. */
+  byMonth: MonthTotal[]
+}

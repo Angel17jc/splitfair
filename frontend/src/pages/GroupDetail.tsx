@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import Card from '../components/Card'
 import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
+import AnalyticsPanel from '../features/analytics/AnalyticsPanel'
 import MembersBalances from '../features/balances/MembersBalances'
 import MyBalanceSummary from '../features/balances/MyBalanceSummary'
 import SettlementsPanel from '../features/balances/SettlementsPanel'
@@ -105,6 +106,11 @@ export default function GroupDetail() {
             miId={usuario?.userId}
             soyAdministrador={soyAdministrador}
           />
+
+          {/* La analitica va la ultima: es contexto, no accion. Quien entra
+              quiere saber cuanto debe y a quien pagar antes que en que se ha
+              ido el dinero. */}
+          <AnalyticsPanel groupId={grupo.id} />
         </div>
       </div>
 
