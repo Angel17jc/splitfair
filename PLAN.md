@@ -473,9 +473,12 @@ PERCENTAGE y SHARES quedan guardados sumando exactamente el importe.
 
 - **El cuadre de un reparto no se puede comprobar en coma flotante.** Sumar los importes con `+`
   y compararlos con el total marca como descuadrado un reparto perfectamente válido:
-  `33,33 + 33,33 + 33,34` da `100.00000000000001`. El usuario vería un error inexistente y sin
-  forma de corregirlo, porque lo que escribió es correcto. Se compara en **céntimos enteros**,
-  la misma decisión que toma `MoneySplitter` en el backend.
+  `8,20 + 0,10 + 1,70` debería dar `10,00` y da `9.999999999999998`. El usuario vería un error
+  inexistente y sin forma de corregirlo, porque lo que escribió es correcto. Se compara en
+  **céntimos enteros**, la misma decisión que toma `MoneySplitter` en el backend.
+  *(Corregido en la Fase 7: el ejemplo citado originalmente, `33,33 + 33,33 + 33,34`, no falla —
+  esa suma da exactamente 100. Lo destapó el test al escribirlo. El principio se sostiene; el
+  ejemplo era falso.)*
 - **La actualización optimista tiene un límite que no se puede cruzar.** Solo adelanta lo que el
   cliente ya sabe: descripción, importe total, fecha, categoría y a cuántos afecta. Nunca cuánto
   le toca a cada uno, porque eso exigiría dividir en coma flotante y enseñar cifras que pueden

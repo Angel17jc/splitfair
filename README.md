@@ -386,14 +386,23 @@ cd backend
 falla con errores de compilación inventados sobre código que está perfecto. Es
 además lo que MapStruct necesita para regenerar los mappers.
 
-El frontend todavía no tiene suite propia (llega en la Fase 7). Mientras tanto:
+Frontend, con **Vitest + Testing Library** sobre jsdom:
 
 ```bash
 cd frontend
+npm test            # suite completa (49 tests)
+npm run test:watch  # en vigilancia, mientras desarrollas
 npx tsc --noEmit    # tipos
 npm run lint
 npm run build
 ```
+
+Los tests de frontend **no hablan con el backend**: eso se verifica en un
+navegador real contra el servidor real. Aquí se cubre la lógica que un
+recorrido por la interfaz no distingue —que una suma cuadre al céntimo, que un
+gasto no quede fechado mañana, que la guarda de ruta no expulse a nadie
+mientras comprueba la sesión— y que además sería lenta y frágil de comprobar a
+mano.
 
 Los tests de integración levantan un **PostgreSQL 16 real con Testcontainers**,
 no H2. H2 acepta SQL que PostgreSQL rechaza y no implementa igual `NUMERIC` ni

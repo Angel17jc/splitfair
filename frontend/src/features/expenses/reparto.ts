@@ -5,11 +5,15 @@ import type { SplitType } from '../../types/api'
  *
  * ## Por que en enteros y no en coma flotante
  *
- * La tentacion es sumar los importes con `+` y comparar con el total. Pero
- * `0.1 + 0.2 !== 0.3` en JavaScript, asi que un reparto perfectamente valido
- * de 33,33 + 33,33 + 33,34 puede dar 100.00000000000001 y quedarse marcado
- * como descuadrado. El usuario ve un error que no existe y no tiene forma de
- * corregirlo, porque los numeros que ha escrito **son** correctos.
+ * La tentacion es sumar los importes con `+` y comparar con el total. Pero en
+ * coma flotante hay repartos validos cuya suma no da el total: `8,20 + 0,10 +
+ * 1,70` deberia dar exactamente `10,00` y da `9.999999999999998`. El usuario
+ * veria un error que no existe y sin forma de corregirlo, porque los numeros
+ * que ha escrito **son** correctos.
+ *
+ * No es raro ni rebuscado: basta con que alguno de los sumandos no sea
+ * representable en binario, que le pasa a la mayoria de los importes con
+ * decimales.
  *
  * Aqui se convierte cada valor a su unidad minima entera —centimos para los
  * importes, centesimas de punto para los porcentajes— y se compara con `===`.
