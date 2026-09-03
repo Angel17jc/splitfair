@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import Button from '../components/Button'
 import Card from '../components/Card'
 import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
+import MembersBalances from '../features/balances/MembersBalances'
+import MyBalanceSummary from '../features/balances/MyBalanceSummary'
+import { useBalances } from '../features/balances/hooks'
 import CreateExpenseModal from '../features/expenses/CreateExpenseModal'
 import ExpenseList from '../features/expenses/ExpenseList'
 import InviteModal from '../features/groups/InviteModal'
@@ -15,7 +17,10 @@ export default function GroupDetail() {
   const { usuario } = useAuth()
   const [invitando, setInvitando] = useState(false)
   const [anadiendoGasto, setAnadiendoGasto] = useState(false)
-  const { data: grupo, isPending, isError, error, refetch } = useGrupo(Number(groupId))
+
+  const id = Number(groupId)
+  const { data: grupo, isPending, isError, error, refetch } = useGrupo(id)
+  const balances = useBalances(id)
 
   if (isPending) {
     return <DetalleEsqueleto />
@@ -32,6 +37,8 @@ export default function GroupDetail() {
 
   const soyAdministrador =
     grupo.members.find((m) => m.userId === usuario?.userId)?.role === 'ADMIN'
+
+  const miSaldo = balances.data?.balances.find((b) => b.userId === usuario?.userId)
 
   return (
     <>
@@ -51,10 +58,19 @@ export default function GroupDetail() {
       </header>
 
       {/*
-        Los gastos son lo que se viene a ver; los miembros, contexto. En
-        pantalla ancha van en columnas y en movil se apilan, con los gastos
-        primero.
+        El saldo propio va arriba y a todo lo ancho: es el dato por el que se
+        abre la aplicacion. Mientras carga no se reserva sitio con un esqueleto
+        porque aparecer empujando el contenido una sola vez molesta menos que
+        una franja gris permanente en la parte mas visible de la pagina.
       */}
+      {balances.data && (
+        <MyBalanceSummary
+          mio={miSaldo}
+          moneda={balances.data.currency}
+          totalDelGrupo={balances.data.totalSpent}
+        />
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ExpenseList
@@ -65,53 +81,16 @@ export default function GroupDetail() {
           />
         </div>
 
-        <Card como="section" className="lg:col-span-1 lg:self-start">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-medium text-slate-900">
-            Miembros{' '}
-            <span className="font-normal text-slate-400">({grupo.members.length})</span>
-          </h2>
-          {/*
-            El boton solo existe para administradores porque solo ellos pueden
-            invitar. Mostrarlo a todos y dejar que el backend responda 403
-            seria ensenar una puerta que no abre.
-          */}
-          {soyAdministrador && (
-            <Button variante="secundario" onClick={() => setInvitando(true)}>
-              Invitar
-            </Button>
-          )}
-        </div>
-
-        <ul className="mt-4 divide-y divide-slate-100">
-          {grupo.members.map((miembro) => (
-            <li key={miembro.userId} className="flex items-center gap-3 py-3">
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600"
-              >
-                {miembro.name.slice(0, 2).toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-900">
-                  {miembro.name}
-                  {/* Saber cual eres tu evita tener que compararse con el
-                      email en una lista de cinco personas. */}
-                  {miembro.userId === usuario?.userId && (
-                    <span className="ml-1 font-normal text-slate-400">(tu)</span>
-                  )}
-                </p>
-                <p className="truncate text-xs text-slate-500">{miembro.email}</p>
-              </div>
-              {miembro.role === 'ADMIN' && (
-                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                  Admin
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-        </Card>
+        <MembersBalances
+          balances={balances.data?.balances}
+          miembros={grupo.members}
+          moneda={grupo.currency}
+          miId={usuario?.userId}
+          cargando={balances.isPending}
+          error={balances.isError ? balances.error : null}
+          onReintentar={() => balances.refetch()}
+          onInvitar={soyAdministrador ? () => setInvitando(true) : undefined}
+        />
       </div>
 
       <CreateExpenseModal
@@ -128,7 +107,7 @@ export default function GroupDetail() {
         nombreDelGrupo={grupo.name}
       />
 
-      {/* Balances y liquidaciones llegan en la Fase 7. */}
+      {/* Las liquidaciones llegan en el commit siguiente. */}
     </>
   )
 }
@@ -152,7 +131,7 @@ function DetalleEsqueleto() {
       <Skeleton className="h-4 w-24" />
       <Skeleton className="mt-6 h-8 w-1/3" />
       <Skeleton className="mt-2 h-4 w-1/2" />
-      <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
+      <Card className="mt-8">
         <Skeleton className="h-5 w-28" />
         {[0, 1, 2].map((i) => (
           <div key={i} className="mt-4 flex items-center gap-3">
@@ -163,7 +142,7 @@ function DetalleEsqueleto() {
             </div>
           </div>
         ))}
-      </div>
+      </Card>
     </div>
   )
 }

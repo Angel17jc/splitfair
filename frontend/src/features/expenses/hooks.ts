@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { crearGasto, listarGastos } from '../../api/expenses'
 import { sesion } from '../../api/session'
+import { clavesDeBalances } from '../balances/claves'
 import { clavesDeGrupos } from '../groups/claves'
 import { clavesDeGastos } from './claves'
 import type { Expense, ExpenseFilters, ExpenseInput, Paged } from '../../types/api'
@@ -92,6 +93,10 @@ export function useCrearGasto(groupId: number) {
       queryClient.invalidateQueries({ queryKey: clavesDeGastos.deGrupo(groupId) })
       // Cada fila del dashboard trae myBalance, y el gasto acaba de moverlo.
       queryClient.invalidateQueries({ queryKey: clavesDeGrupos.listas() })
+      // Y los saldos del grupo, que es lo que el gasto acaba de cambiar de
+      // verdad: sin esto el panel de balances se queda con las cifras de
+      // antes, que es peor que verlas cargando porque parecen correctas.
+      queryClient.invalidateQueries({ queryKey: clavesDeBalances.deGrupo(groupId) })
     },
   })
 }
