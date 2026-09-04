@@ -2,8 +2,19 @@
 #
 # El trabajo "dependencias" de la CI impide *anadir* algo vulnerable, pero no
 # hace nada con lo que ya esta instalado el dia que le publican un aviso.
-# Dependabot cubre justo ese caso abriendo el pull request, que a su vez pasa
-# por la CI completa antes de poder fusionarse.
+# Dependabot cubre ese caso, y sus pull requests pasan por la CI completa antes
+# de poder fusionarse.
+#
+# Dos ajustes que no son cosmeticos, aprendidos de la primera ejecucion, que
+# abrio catorce pull requests de una sentada:
+#
+# - Se agrupan las actualizaciones menores y de parche en un solo pull request
+#   por ecosistema. Repartidas en uno por dependencia, la mayoria son ruido y
+#   el ruido acaba enterrando justo lo que hay que mirar.
+# - Se excluyen los saltos de version mayor de los pilares del proyecto. No es
+#   pereza: son decisiones de producto ya tomadas, y un pull request que nunca
+#   se va a fusionar reaparece cada semana hasta que se deja de leer a
+#   Dependabot entero.
 version: 2
 updates:
   - package-ecosystem: maven
@@ -13,6 +24,18 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      menores:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Cambiar de version mayor de Spring Boot es una migracion con cambios
+      # rompientes, no una actualizacion: se planifica, no se fusiona.
+      - dependency-name: org.springframework.boot:spring-boot-starter-parent
+        update-types: ["version-update:semver-major"]
+      # Va atada a la version mayor de Boot: springdoc 3 exige Boot 4.
+      - dependency-name: org.springdoc:*
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /frontend
@@ -22,12 +45,33 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
+    groups:
+      menores:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # React se queda en 18 por decision de producto: React Router 8 exige
+      # React >= 19.2.7 y el proyecto se mantiene en Router 7. Subir React sin
+      # subir el enrutador, o al reves, rompe la aplicacion.
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-router-dom
+        update-types: ["version-update:semver-major"]
 
   # Las propias acciones son codigo de terceros que corre con acceso al
-  # repositorio: se actualizan como cualquier otra dependencia.
+  # repositorio: se actualizan como cualquier otra dependencia. Aqui si se
+  # aceptan las versiones mayores, porque la CI se prueba a si misma: si una
+  # accion nueva rompe el pipeline, el pull request se pone en rojo.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
     commit-message:
       prefix: "ci(deps)"
+    groups:
+      acciones:
+        patterns: ["*"]
