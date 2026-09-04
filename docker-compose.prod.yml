@@ -104,5 +104,45 @@ services:
       retries: 3
       start_period: 10s
 
+  # ---------------------------------------------------------------------
+  # Copias de seguridad
+  # ---------------------------------------------------------------------
+  # Misma imagen que el servidor a proposito: pg_dump y PostgreSQL van
+  # siempre a la misma version. Un pg_dump mas antiguo que el servidor se
+  # niega a volcar, y uno mas nuevo produce ficheros que el servidor no
+  # restaura.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD}
+      PGDATABASE: ${DB_NAME:-expense_split}
+      RETENCION_DIAS: ${RETENCION_COPIAS_DIAS:-14}
+    volumes:
+      - ./scripts:/scripts:ro
+      - copias:/backups
+    # La copia inicial se lanza al arrancar y no solo a las 3:00. Sin ella,
+    # un error de configuracion —contrasena mal, volumen sin permisos— no se
+    # descubriria hasta la primera noche, y probablemente hasta el dia que
+    # hiciera falta restaurar. No tumba el contenedor si falla: se veria en el
+    # log, pero un reinicio en bucle no arregla nada y oculta el motivo.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sh /scripts/backup.sh || echo "[copia] AVISO: la copia inicial fallo"
+        echo "0 3 * * * sh /scripts/backup.sh > /proc/1/fd/1 2>&1" > /etc/crontabs/root
+        exec crond -f -l 8
+
 volumes:
   pgdata:
+  # Volumen aparte del de datos: una copia que vive en el mismo sitio que el
+  # original no protege del caso mas comun, que es perder ese sitio. Aqui
+  # sigue siendo el mismo disco, asi que esto es la mitad del trabajo: la otra
+  # mitad es sacarlas fuera de la maquina, y eso se documenta en el despliegue.
+  copias:
