@@ -1,8 +1,10 @@
 package com.expensesplit.exception;
 
 import com.expensesplit.dto.response.ErrorResponse;
+import com.expensesplit.observability.TraceIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -132,11 +135,43 @@ public class GlobalExceptionHandler {
                 "La operacion entra en conflicto con datos existentes", request);
     }
 
+    /**
+     * Ruta desconocida.
+     *
+     * <p>Sin este manejador la excepcion cae en la red de seguridad de abajo y
+     * sale como <b>500</b>, con su stack trace a nivel ERROR. Se descubrio
+     * escribiendo los tests de las sondas de estado, pidiendo un endpoint de
+     * Actuator no publicado.
+     *
+     * <p>Son dos problemas distintos. El cliente recibe "ha ocurrido un error
+     * interno" cuando lo cierto es que ahi no hay nada, y un frontend
+     * razonable interpreta el 500 como servidor caido. Y el log acumula
+     * errores que no lo son, justo en el nivel que se vigila.
+     *
+     * <p>No lleva traceId: el identificador existe para investigar un fallo
+     * interno, y aqui no hay nada que investigar. Tampoco se registra el
+     * stack trace, por el mismo motivo.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRutaDesconocida(NoResourceFoundException ex,
+                                                                HttpServletRequest request) {
+        log.debug("Ruta no encontrada: {} {}", request.getMethod(), request.getRequestURI());
+        return build(HttpStatus.NOT_FOUND, "La ruta solicitada no existe", request);
+    }
+
     // --- Red de seguridad ---
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
-        String traceId = UUID.randomUUID().toString().substring(0, 8);
+        // Se reutiliza el identificador que TraceIdFilter puso al empezar la
+        // peticion, en vez de generar otro: el que ve el usuario tiene que ser
+        // el mismo que aparece en todas las lineas de log de esa peticion, o
+        // no sirve para localizar nada. El respaldo cubre el caso de una
+        // excepcion levantada antes de que el filtro llegara a ejecutarse.
+        String traceId = MDC.get(TraceIdFilter.CLAVE);
+        if (traceId == null) {
+            traceId = UUID.randomUUID().toString().substring(0, 8);
+        }
 
         // El stack trace completo va al log, junto al identificador que el
         // cliente vera. Es lo que permite atender un reporte de usuario sin

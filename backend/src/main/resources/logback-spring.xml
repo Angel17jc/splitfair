@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuracion de logs.
+
+  Solo existe para una cosa: que en produccion salgan en JSON. Un log de
+  produccion no lo lee una persona linea a linea, lo ingiere un agregador, y
+  con texto plano cada campo hay que extraerlo con expresiones regulares que
+  se rompen en cuanto cambia el formato de un mensaje.
+
+  En desarrollo se mantiene la consola legible de Spring Boot, con el
+  identificador de peticion anadido desde application.yml.
+-->
+<configuration>
+    <!-- Convenciones de Spring Boot: niveles, colores y patrones. Sin este
+         include, este fichero sustituiria toda la configuracion por defecto. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProfile name="prod">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- El identificador de peticion viaja como campo propio y no
+                     empotrado en el texto: asi se puede filtrar por el. -->
+                <includeMdcKeyName>traceId</includeMdcKeyName>
+                <fieldNames>
+                    <timestamp>timestamp</timestamp>
+                    <message>mensaje</message>
+                    <logger>origen</logger>
+                    <thread>hilo</thread>
+                    <levelValue>[ignore]</levelValue>
+                </fieldNames>
+            </encoder>
+        </appender>
+        <!-- A la salida estandar, no a un fichero: en un contenedor los logs
+             los recoge el motor, y escribir dentro hace crecer una capa que
+             se pierde en cuanto el contenedor se reemplaza. -->
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!prod">
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

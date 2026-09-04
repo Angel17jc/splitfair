@@ -26,6 +26,7 @@
              HTTP 400, de modo que Testcontainers no encuentra el entorno.
              Overridable: -Ddocker.api.version=1.43 -->
         <docker.api.version>1.44</docker.api.version>
+        <logstash.encoder.version>8.0</logstash.encoder.version>
         <bucket4j.version>8.14.0</bucket4j.version>
     </properties>
 
@@ -116,6 +117,30 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <!-- Sondas de estado y metricas. La exposicion por HTTP se limita en
+             application.yml: solo /actuator/health es publico, y sin detalles -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Formato de metricas para Prometheus. Micrometer ya viene con el
+             actuator; esto solo anade el registro que las expone -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Logs en JSON para el perfil de produccion. Spring Boot trae
+             logging estructurado propio a partir de la 3.4; en la 3.3 hace
+             falta este codificador -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash.encoder.version}</version>
         </dependency>
 
         <!-- Documentación OpenAPI / Swagger -->

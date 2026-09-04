@@ -58,13 +58,31 @@ services:
     # el limite. Ver application-prod.yml y ProxyRateLimitTest.
     expose:
       - "8080"
+    # Sonda de "listo", no de "vivo": responde 503 mientras Flyway migra o la
+    # base no esta accesible. Con la de vivo bastaria con que la JVM
+    # respondiera, y nginx empezaria a mandarle trafico a una instancia que
+    # todavia no puede atenderlo.
+    #
+    # start_period cubre los ~25 segundos de arranque. Sin el, el contenedor
+    # se marca como enfermo mientras arranca con toda normalidad, y el
+    # frontend que espera a que este sano no llegaria a arrancar nunca.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   frontend:
     build:
       context: ./frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      # service_healthy y no la forma corta: esta solo espera a que el
+      # contenedor arranque, y nginx resolveria "backend" contra un proceso
+      # que aun no escucha. Las primeras peticiones responderian 502.
+      backend:
+        condition: service_healthy
     # Unico puerto publicado de todo el despliegue. La aplicacion y la API
     # comparten origen, asi que no hace falta abrir nada mas.
     #
@@ -74,6 +92,17 @@ services:
     # con lo que la sesion se caeria a los 15 minutos sin dar ningun error.
     ports:
       - "${HTTP_PORT:-80}:8080"
+    # 127.0.0.1 y no "localhost": dentro del contenedor localhost resuelve
+    # primero a ::1, nginx escucha solo en IPv4 y el wget de busybox no
+    # reintenta por IPv4. La sonda daba "connection refused" con el servidor
+    # sirviendo perfectamente. Se usa la forma explicita tambien en el backend,
+    # donde hoy funciona por casualidad: la JVM si atiende en ambas pilas.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   pgdata:

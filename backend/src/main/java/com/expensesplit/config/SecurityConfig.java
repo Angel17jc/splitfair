@@ -4,6 +4,8 @@ import com.expensesplit.security.JwtAuthFilter;
 import com.expensesplit.security.RestAccessDeniedHandler;
 import com.expensesplit.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
+import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -64,6 +66,22 @@ public class SecurityConfig {
                 // metodo GET para no abrir de paso el resto de operaciones
                 // sobre invitaciones.
                 .requestMatchers(HttpMethod.GET, "/api/invitations/*").permitAll()
+                // Solo las sondas de estado. Se abren porque quien las
+                // consulta —Docker, el orquestador, el balanceador— no tiene
+                // credenciales, y una sonda que responde 401 se interpreta
+                // como servicio caido: el contenedor entraria en un ciclo de
+                // reinicios sin que le pase nada.
+                //
+                // Se usa EndpointRequest y no la ruta escrita a mano porque
+                // la base de /actuator es configurable: con un literal,
+                // cambiarla dejaria de casar en silencio y las sondas
+                // empezarian a fallar sin que nada avise.
+                //
+                // El resto de endpoints —metricas incluidas— queda bajo la
+                // regla general y exige autenticacion. Y en el despliegue,
+                // ademas, nginx solo reenvia /api: nada de /actuator es
+                // alcanzable desde fuera.
+                .requestMatchers(EndpointRequest.to(HealthEndpoint.class)).permitAll()
                 .anyRequest().authenticated()
             )
             // Sin esto, los fallos que ocurren en la cadena de filtros salen

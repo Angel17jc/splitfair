@@ -93,6 +93,38 @@ app:
     # Configurable por entorno: en produccion no es localhost.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Lista explicita, no "*". Con el comodin, cada version de Spring Boot
+        # que anada un endpoint nuevo lo publica sin que nadie lo decida:
+        # /actuator/env y /actuator/configprops, por ejemplo, muestran la
+        # configuracion entera, secretos incluidos.
+        include: health,info,metrics,prometheus
+
+  endpoint:
+    health:
+      # Explicito aunque sea el valor por defecto, porque es una decision de
+      # seguridad: con detalles, la respuesta publica dice que base de datos
+      # hay detras, su version y el espacio libre en disco. La sonda solo
+      # necesita saber si esta arriba.
+      show-details: never
+      # Anade /actuator/health/liveness y /actuator/health/readiness. La
+      # distincion importa al desplegar: "vivo" significa no reiniciarme,
+      # "listo" significa ya puedes mandarme trafico. Confundirlos hace que
+      # el orquestador enrute peticiones a una instancia que todavia esta
+      # migrando el esquema.
+      probes:
+        enabled: true
+
+logging:
+  pattern:
+    # Mete el identificador de peticion en todas las lineas de la consola.
+    # Se engancha al patron por defecto de Spring Boot en vez de reescribirlo
+    # entero, para no perder colores ni formato al actualizar de version.
+    level: "%5p [%X{traceId:-........}]"
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
