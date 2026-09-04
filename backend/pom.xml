@@ -27,7 +27,7 @@
              Overridable: -Ddocker.api.version=1.43 -->
         <docker.api.version>1.44</docker.api.version>
         <logstash.encoder.version>8.0</logstash.encoder.version>
-        <bucket4j.version>8.14.0</bucket4j.version>
+        <bucket4j.version>8.19.0</bucket4j.version>
     </properties>
 
     <dependencies>
