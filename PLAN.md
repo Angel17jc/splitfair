@@ -5,7 +5,7 @@ hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
 - **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-7 **completadas** (54 commits · 365 tests de backend y 49 de frontend, todos en verde) · siguiente: Fase 8
+- **Estado:** Fases 0-8 **completadas** (62 commits · 386 tests de backend y 49 de frontend, todos en verde). El plan esta terminado; lo que queda son mejoras de interfaz, listadas al final.
 
 ---
 
@@ -581,7 +581,60 @@ confirma y el suyo pasa a "Estás al día" con el grupo saldado.
    - README con capturas, decisiones de arquitectura y explicación del algoritmo.
 
 **Criterio de cierre:** CI bloqueando merges rotos; app accesible en una URL pública;
-restauración de backup verificada.
+restauración de backup verificada. ✅ **Cumplido, con una precisión.** La CI corre en cada
+push y en cada pull request, y está verde; convertirla en bloqueante es marcar los checks
+como obligatorios en GitHub, que es un ajuste del repositorio y no un fichero — queda
+documentado, no activado, porque obliga a trabajar con pull requests. El stack de producción
+se levantó completo y se recorrió en un navegador. La restauración se probó de extremo a
+extremo: datos creados por la API, copia, `TRUNCATE`, restauración, y la aplicación
+volviendo a funcionar con ellos.
+
+Salieron **seis** commits y no cinco: la política de Dependabot necesitó uno propio.
+
+**Hallazgos durante la ejecución:**
+
+- **Meter nginx delante rompía el rate limiting, y en silencio.** El backend cuenta los
+  intentos de login por IP con `getRemoteAddr()`; detrás del proxy, todas las peticiones
+  llegan con la dirección del contenedor y los 5 intentos cada 15 minutos pasan a ser 5
+  para toda la aplicación. No es una protección debilitada: es una denegación de servicio
+  contra los usuarios legítimos. El Javadoc de `AuthRateLimiter` ya nombraba la solución
+  —`forward-headers-strategy=FRAMEWORK`— pero no estaba configurada en ningún perfil.
+- **Un 403 en todos los POST que `curl` no reproducía.** El navegador envía `Origin`
+  también en peticiones al mismo origen, y Spring lo compara con el suyo reconstruido a
+  partir de `Host`. nginx enviaba `$host`, que va **sin puerto**, así que el backend se
+  creía en `http://localhost` mientras la página decía `http://localhost:8095`. Login,
+  registro y refresco fallaban todos. Se arregla con `$http_host`.
+- **Cualquier ruta inexistente devolvía 500.** Salió escribiendo los tests de las sondas:
+  `NoResourceFoundException` caía en el manejador genérico. Medirlo acotó el alcance —sin
+  sesión, la cadena de seguridad responde 401 antes de llegar al enrutado, así que un
+  rastreador no lo provoca— pero un usuario autenticado con una URL mal escrita recibía
+  "error interno" y dejaba un stack trace a nivel ERROR.
+- **La sonda del frontend daba "connection refused" con nginx sirviendo perfectamente.**
+  Dentro del contenedor, `localhost` resuelve primero a `::1`, nginx escucha solo en IPv4 y
+  el `wget` de busybox no reintenta. Hay que usar `127.0.0.1`.
+- **La primera ejecución de Dependabot abrió catorce pull requests**, dos de ellos
+  proponiendo justo lo que el proyecto decidió no hacer: React 19 y Spring Boot 4. Un pull
+  request que nunca se va a fusionar y siempre está ahí es la forma más rápida de que se
+  deje de leer a Dependabot entero.
+- **OWASP dependency-check no entró**, y estaba en el plan. Desde que la NVD exige clave de
+  API, sin ella queda limitado y tarda decenas de minutos o falla: un control que falla por
+  su propia infraestructura no protege de nada y entrena a saltárselo. En su lugar,
+  `dependency-review-action`, que usa el grafo de dependencias de GitHub.
+- **La baja de cuenta no podía ser un DELETE.** Verificado por mutación: si además retira
+  la pertenencia a los grupos —el enfoque ingenuo— los balances dejan de sumar cero y el
+  dinero se evapora del informe. Anonimizar conserva el histórico.
+- **La trampa de `target/` tiene una forma de carrera.** Dos de cada tres `clean verify`
+  locales fallaron con errores de compilación inventados sobre código correcto, mientras la
+  misma suite pasaba en el runner. La extensión de Java de VS Code reescribe `target/`
+  mientras Maven compila.
+
+**Lo que queda, y es de interfaz, no de plataforma:**
+
+- Editar y borrar gastos desde la interfaz. Falta `paidByUserId` en `Expense`.
+- Cambiar de rol y expulsar miembros desde la interfaz.
+- Registrar un pago que no salga de una sugerencia.
+- Pantalla para darse de baja: el endpoint existe y está probado, pero una función de
+  protección de datos que solo se ejerce por API está a medias para un usuario real.
 
 ---
 
