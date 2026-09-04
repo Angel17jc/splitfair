@@ -1,6 +1,25 @@
-# Gastos Compartidos (Splitwise Clone)
+# SplitFair
 
 App full stack para gestionar gastos compartidos entre grupos de personas (roommates, viajes, etc.), con cálculo automático de balances y simplificación de deudas.
+
+![Panel de grupos](docs/img/dashboard.png)
+
+Cada grupo lleva su propia moneda y su propio saldo. Dentro, los gastos con
+su reparto, quién debe a quién, y el mínimo de pagos que dejan las cuentas a
+cero:
+
+![Detalle de un grupo](docs/img/grupo.png)
+
+<img src="docs/img/analitica.png" alt="Analítica del gasto" width="330" align="right">
+
+La analítica se agrega **en SQL**, no en el cliente. El listado de gastos está
+paginado, así que sumar lo que hay cargado daría totales parciales presentados
+como completos; y sumar dinero en JavaScript es sumarlo en coma flotante.
+
+Las barras usan un solo color a propósito: la longitud ya codifica la
+magnitud, y un degradado por valor codificaría dos veces lo mismo.
+
+<br clear="right">
 
 ## Stack
 
@@ -305,12 +324,86 @@ propia**. Quien la cambia suele hacerlo porque sospecha que alguien más tiene
 acceso; si las sesiones sobrevivieran, el intruso conservaría un refresh token
 válido durante treinta días.
 
-### Borrar un usuario
+### Dar de baja una cuenta
 
-**No hay endpoint, y es una decisión pendiente, no un olvido.** Borrar a
-alguien que aparece en gastos y liquidaciones rompería el histórico contable
-del grupo. Lo que hará falta es un borrado lógico que conserve los apuntes.
-Para pruebas, se limpia por SQL contra la base de desarrollo.
+`DELETE /api/users/me`, con la contraseña actual en el cuerpo.
+
+**No borra la fila, la anonimiza**, y esa es la decisión de fondo. Quien se da
+de baja aparece en gastos, repartos y liquidaciones confirmadas: borrarlo
+dejaría apuntes sin dueño y los balances del grupo dejarían de sumar cero, es
+decir, dinero evaporándose del informe sin que nadie lo hubiera pagado.
+
+Lo que se elimina son los datos personales. Nombre y correo se sustituyen —el
+correo por uno aleatorio en el dominio reservado `.invalid`— y el hash de la
+contraseña se reemplaza por uno que nadie conoce. Para el resto del grupo, esa
+persona pasa a ser «Usuario eliminado» en un histórico que sigue cuadrando.
+
+Efectos inmediatos: las sesiones se revocan, y los access token que siguieran
+vivos dejan de valer al instante, porque llevan el correo como sujeto y ese
+correo ya no existe. El correo original queda libre: quien quiera puede volver
+a registrarse, y será una cuenta nueva sin relación con los apuntes anteriores.
+
+Todavía **no hay pantalla** para hacerlo; solo la API.
+
+---
+
+## Cómo se reparte el dinero
+
+Es el núcleo del proyecto y donde están las decisiones que más cuestan de ver.
+
+### El reparto se hace en céntimos enteros
+
+El enfoque evidente —`total.divide(n, 2, HALF_UP)`— **no cuadra**. Repartir
+`100,00` entre 6 da `16,67` a cada uno, que suman `100,02`: no solo se pierde
+dinero, se **inventa**.
+
+`MoneySplitter` reparte por **mayor residuo** en aritmética entera de
+céntimos: divide, reparte el resto de uno en uno, y la suma de las partes es
+exactamente el total. Hay un test que lo comprueba de forma exhaustiva sobre
+500.000 repartos.
+
+Los participantes se ordenan por id antes de repartir, de modo que recalcular
+un gasto no cambia a quién le toca el céntimo de más. Se ve en las capturas
+de arriba: de `1283,30 €` entre tres, uno debe `427,76` y otro `427,77`.
+
+Los cuatro modos de reparto —a partes iguales, importes exactos, porcentajes y
+partes proporcionales— son estrategias separadas. Añadir uno es crear una
+clase: si algún valor del enum se queda sin implementación, la aplicación
+**no arranca**, en vez de fallar el día que alguien lo use.
+
+### Los balances se calculan, no se acumulan
+
+```
+balance = (adelantado − adeudado) + (entregado − cobrado)
+```
+
+Solo cuentan las liquidaciones **confirmadas**. Una pendiente es la palabra de
+una sola parte: si contara, bastaría declarar un pago inexistente para borrar
+una deuda. Y solo puede confirmarla **quien cobra**.
+
+El cálculo son dos consultas de agrupación en SQL, con coste independiente del
+número de gastos, y parte de la lista de **miembros** y no de la de gastos,
+para que quien no ha pagado nada aparezca con `0,00` en vez de desaparecer del
+informe.
+
+La invariante que lo sostiene: **los balances de un grupo suman siempre cero**.
+De ahí salen dos reglas que parecen arbitrarias y no lo son: nadie sale de un
+grupo con saldo distinto de cero, y dar de baja una cuenta la anonimiza en vez
+de borrarla. En ambos casos, quitar a una persona del informe dejaría su deuda
+sin contraparte y el dinero se evaporaría de las cuentas del resto.
+
+### Saldar con el mínimo de pagos
+
+Con tres personas hacen falta como mucho dos pagos, no seis. El algoritmo es
+voraz: empareja repetidamente al que más debe con el que más tiene que cobrar,
+y salda el menor de los dos importes. Con *n* personas, nunca más de *n − 1*
+transferencias.
+
+No siempre es el óptimo teórico —encontrarlo es NP-difícil—, pero está a un
+paso de serlo y se calcula al instante. Sus propiedades se comprueban sobre
+unas 1.550 configuraciones aleatorias con **semilla fija escrita en el
+código**: un test aleatorio que falla y no se puede reproducir da una alarma
+que nadie sabe investigar.
 
 ---
 
@@ -376,7 +469,7 @@ y sus equivalentes de registro.
 
 ```bash
 cd backend
-./mvnw clean test          # suite completa (355 tests)
+./mvnw clean test          # suite completa (386 tests)
 ./mvnw clean test -Dtest=NombreTest
 ```
 
@@ -418,37 +511,103 @@ es más antiguo, ajústalo:
 ./mvnw test -Ddocker.api.version=1.43
 ```
 
+### Integración continua
+
+Todo lo anterior se ejecuta solo en cada push a `main` y en cada pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): backend y frontend en
+paralelo, más una auditoría de vulnerabilidades y la revisión de las
+dependencias que añade cada rama.
+
+Para que además **impida fusionar algo roto**, hay que marcar los checks como
+obligatorios en GitHub — Settings → Branches → Add rule sobre `main`,
+seleccionando *Backend* y *Frontend*. No viene activado en el repositorio: es
+un ajuste de GitHub, no un fichero, y activarlo obliga a trabajar con pull
+requests en vez de empujar directo a `main`.
+
+---
+
 ## Estructura del proyecto
 
 ```
-splitwise-clone/
+splitfair/
+├── .github/workflows/ci.yml   Integración continua
 ├── backend/
-│   ├── src/main/java/com/expensesplit/
-│   │   ├── config/         Spring Security, CORS
-│   │   ├── controller/     Endpoints REST
-│   │   ├── service/        Lógica de negocio (incluye el algoritmo de deudas)
-│   │   ├── repository/     Interfaces JPA
-│   │   ├── model/          Entidades (User, Group, Expense, etc.)
-│   │   ├── dto/             Objetos de transferencia (request/response)
-│   │   ├── security/        JWT, filtros de autenticación
-│   │   └── exception/       Manejo global de errores
-│   └── src/test/           Tests unitarios (incluye el test del algoritmo de deudas)
+│   ├── Dockerfile             Imagen de producción, en capas y sin root
+│   └── src/main/
+│       ├── java/com/expensesplit/
+│       │   ├── config/        Spring Security, CORS, OpenAPI
+│       │   ├── controller/    Endpoints REST
+│       │   ├── service/       Lógica de negocio
+│       │   │   └── split/     Una estrategia por modo de reparto
+│       │   ├── repository/    Interfaces JPA
+│       │   ├── model/         Entidades
+│       │   ├── dto/           Objetos de transferencia
+│       │   ├── security/      JWT, filtros, rate limiting, cookie
+│       │   ├── observability/ Identificador por petición, tareas periódicas
+│       │   └── exception/     Manejo global de errores
+│       └── resources/db/migration/   Migraciones Flyway
 ├── frontend/
+│   ├── Dockerfile             Compila y sirve con nginx
+│   ├── nginx.conf             SPA + proxy de /api al mismo origen
 │   └── src/
-│       ├── api/            Llamadas a la API con Axios
-│       ├── pages/           Páginas (Login, Register, Dashboard)
-│       ├── routes/           Configuración de rutas
-│       └── ...
-└── docker-compose.yml
+│       ├── api/               Cliente HTTP, tipos y renovación de sesión
+│       ├── features/          Auth, grupos, gastos, balances, analítica
+│       ├── components/        Componentes base
+│       └── routes/            Rutas y guardas
+├── scripts/                   backup.sh y restore.sh
+├── docs/DESPLIEGUE.md         Guía de despliegue
+├── docker-compose.yml         Desarrollo
+└── docker-compose.prod.yml    Producción
 ```
+
+## La API de un vistazo
+
+Base: `/api`. El contrato completo, con cuerpos y validaciones, está en
+OpenAPI: `http://localhost:8080/swagger-ui.html` (solo en desarrollo; en
+producción está desactivado a propósito).
+
+| Método y ruta | Qué hace |
+|---|---|
+| `POST /auth/register` · `/auth/login` | Devuelven el access token; el refresh va en cookie `HttpOnly` |
+| `POST /auth/refresh` · `/auth/logout` | Sin cuerpo: leen la cookie |
+| `GET · PATCH /users/me` | Perfil y cambio de nombre |
+| `POST /users/me/password` | Cambiar contraseña; revoca todas las sesiones |
+| `DELETE /users/me` | Baja de cuenta con anonimización |
+| `GET · POST /groups` | Listado paginado y creación |
+| `GET · PATCH /groups/{id}` | Detalle y edición (solo admin) |
+| `POST · DELETE /groups/{id}/members/{userId}` | Añadir y expulsar |
+| `PATCH /groups/{id}/members/{userId}/role` | Cambiar de rol |
+| `POST /groups/{id}/invitations` | Link de invitación de un solo uso |
+| `GET /invitations/{token}` | Vista previa **pública** |
+| `POST /invitations/{token}/accept` | Aceptar |
+| `GET · POST /groups/{id}/expenses` | Listado con filtros y paginación, y alta |
+| `PUT · DELETE /expenses/{id}` | Editar y borrar (pagador o admin) |
+| `GET /groups/{id}/analytics` | Gasto por categoría y por mes |
+| `GET /groups/{id}/balances` | Balances con desglose |
+| `GET · POST /groups/{id}/settlements` | Pagos sugeridos y registro de uno real |
+| `POST /settlements/{id}/confirm` | Confirmar (solo quien cobra) |
+
+Los códigos que el cliente debe distinguir:
+
+| | Significado | Qué hacer |
+|---|---|---|
+| **401** | No sé quién eres | Renovar con el refresh token; si falla, ir al login |
+| **403** | Sé quién eres, no puedes | **No renovar.** Mostrar el mensaje |
+| **429** | Cupo agotado | Respetar la cabecera `Retry-After` |
+
+Confundir 401 con 403 hace que el cliente reintente la renovación en bucle
+contra un recurso al que no tiene derecho.
+
+---
 
 ## Estado del proyecto
 
-El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-7 completadas.**
+El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-8 completadas.**
+Para desplegarlo, la [guía de despliegue](docs/DESPLIEGUE.md).
 
 ### Backend: terminado
 
-- ✅ Modelo de datos, migraciones Flyway (7) y **355 tests** con PostgreSQL real
+- ✅ Modelo de datos, migraciones Flyway (8) y **386 tests** con PostgreSQL real
 - ✅ Autenticación de nivel producto: rotación de refresh tokens con detección
   de reutilización, cookie `HttpOnly`, rate limiting por IP y por email
 - ✅ Grupos, roles, invitaciones por link de un solo uso
@@ -457,6 +616,8 @@ El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-7 completadas.**
 - ✅ Balances con desglose y liquidaciones con confirmación
 - ✅ **Simplificación de deudas** al mínimo de transacciones
 - ✅ OpenAPI/Swagger
+- ✅ Sondas de estado, métricas y logs en JSON con identificador por petición
+- ✅ Baja de cuenta con anonimización, y purga programada de credenciales caducadas
 
 ### Frontend
 
@@ -470,23 +631,32 @@ El plan por fases está en [PLAN.md](PLAN.md). **Fases 0-7 completadas.**
 - ✅ Analítica del gasto por categoría y por mes
 - ✅ **49 tests** con Vitest + Testing Library
 
+### Producción
+
+- ✅ Integración continua en GitHub Actions: backend y frontend en paralelo,
+  auditoría de dependencias y revisión de las que añade cada pull request
+- ✅ Imágenes de producción: backend en capas sobre JRE y sin root, frontend
+  compilado y servido por nginx (697 MB → 91 MB), con la API en el mismo origen
+- ✅ Copias diarias con **restauración probada de extremo a extremo**
+- ✅ Guía de despliegue
+
 ### Lo que falta
 
-- ⬜ **Fase 8** — Producción: CI, imagen de producción con nginx,
-  observabilidad, backups y despliegue
+- ⬜ Editar y borrar gastos desde la interfaz. Los endpoints existen; falta un
+  hueco del contrato: `Expense` trae `paidByName` pero no `paidByUserId`, así
+  que no hay forma fiable de saber si el usuario actual pagó el gasto.
+- ⬜ Cambiar de rol y expulsar miembros desde la interfaz.
+- ⬜ Registrar un pago que no salga de una sugerencia.
+- ⬜ Pantalla para darse de baja.
 
 ### Deuda conocida
 
 - **Rate limiting en memoria.** Con varias réplicas el límite efectivo se
   multiplica. Escalarlo es mover los buckets a Redis.
-- **`purgeExpired()` no lo llama nadie.** Existe en `RefreshTokenService` e
-  `InvitationService`, pero falta la tarea programada: ambas tablas crecen
-  indefinidamente.
 - **Códigos de creación inconsistentes.** `POST /groups` y
   `POST /groups/{id}/expenses` devuelven 200; `/auth/register`,
   `/invitations` y `/settlements` devuelven 201. El cliente no ramifica sobre
   ello, así que unificarlo sigue siendo un cambio de una línea.
-- **Sin borrado de usuarios**, por lo dicho más arriba.
 - `SecurityConfig` avisa al arrancar sobre el `AuthenticationManager` global;
   funciona, pero conviene limpiarlo.
 
