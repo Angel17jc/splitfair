@@ -20,7 +20,7 @@
     <properties>
         <java.version>21</java.version>
         <mapstruct.version>1.6.2</mapstruct.version>
-        <jjwt.version>0.12.6</jjwt.version>
+        <jjwt.version>0.13.0</jjwt.version>
         <!-- Version minima de la API de Docker que exige el daemon. docker-java
              negocia por defecto una anterior y Docker Desktop la rechaza con
              HTTP 400, de modo que Testcontainers no encuentra el entorno.
