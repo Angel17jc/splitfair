@@ -140,7 +140,7 @@ jobs:
       # y responde a la pregunta que de verdad importa en un pull request: esta
       # rama, introduce una dependencia vulnerable que main no tenia?
       - name: Revisar las dependencias que anade el pull request
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
