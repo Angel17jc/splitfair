@@ -1,0 +1,33 @@
+# La otra mitad de la puerta de seguridad.
+#
+# El trabajo "dependencias" de la CI impide *anadir* algo vulnerable, pero no
+# hace nada con lo que ya esta instalado el dia que le publican un aviso.
+# Dependabot cubre justo ese caso abriendo el pull request, que a su vez pasa
+# por la CI completa antes de poder fusionarse.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  # Las propias acciones son codigo de terceros que corre con acceso al
+  # repositorio: se actualizan como cualquier otra dependencia.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci(deps)"

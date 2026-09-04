@@ -1,0 +1,146 @@
+# Integracion continua: nada llega a main sin pasar por aqui.
+#
+# Los dos trabajos principales corren en paralelo porque no dependen entre si;
+# el tiempo de espera es el del mas lento, no la suma. No hay filtros por ruta
+# a proposito: un check obligatorio que no se ejecuta deja la rama bloqueada
+# para siempre, y ese fallo es mucho mas caro que los minutos que ahorraria.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Un push nuevo sobre la misma rama cancela el anterior: el resultado de un
+# commit ya superado no le sirve a nadie y consume minutos del runner.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimo privilegio por defecto. Los trabajos que necesiten mas lo piden
+# explicitamente.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (tests con PostgreSQL real)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          # Cachea ~/.m2 con el hash de los pom.xml como clave.
+          cache: maven
+
+      # Diagnostico, no comprobacion. Testcontainers reporta cualquier
+      # desacuerdo de version de API como "Could not find a valid Docker
+      # environment", un mensaje que apunta al sitio equivocado y ya costo
+      # tiempo una vez. Con esta linea en el log, la causa se ve de un vistazo.
+      #
+      # El pom fija docker.api.version=1.44 (ver la propiedad y el bloque de
+      # surefire). Si el daemon del runner declarase una MinAPIVersion mayor,
+      # se corrige aqui con -Ddocker.api.version=<la que diga esta linea>.
+      - name: Version de la API de Docker del runner
+        run: docker version --format 'API {{.Server.APIVersion}} · minima {{.Server.MinAPIVersion}} · Docker {{.Server.Version}}'
+
+      # clean es obligatorio, no una precaucion: MapStruct solo regenera los
+      # mappers en compilacion completa, y con la incremental un DTO sin mapear
+      # pasaria desapercibido en vez de romper el build, que es justo para lo
+      # que esta MapStruct aqui.
+      #
+      # verify, no test: ademas de la suite empaqueta el jar, que es lo que
+      # consumira la imagen de produccion. Un jar que no se empaqueta es un
+      # fallo que aparece al desplegar, en el peor momento.
+      - name: Compilar, probar y empaquetar
+        working-directory: backend
+        run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      # Los informes solo se suben cuando algo falla: es cuando hacen falta, y
+      # evita guardar artefactos de todas las ejecuciones verdes.
+      - name: Informes de los tests que fallaron
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  frontend:
+    name: Frontend (lint, tipos, tests y build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          # La version vive en .nvmrc para que CI, Docker y la maquina de
+          # desarrollo no puedan divergir sin que nadie se entere.
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # ci, no install: instala exactamente el lockfile y falla si package.json
+      # y package-lock.json no concuerdan. install los reconciliaria en
+      # silencio, y el build de CI dejaria de probar lo que se va a desplegar.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # build ejecuta "tsc -b && vite build": es tambien la puerta de tipos.
+      # Va antes que los tests porque Vitest transpila sin comprobar tipos, asi
+      # que un error de tipos dejaria la suite en verde y solo saldria aqui.
+      - name: Tipos y compilacion
+        run: npm run build
+
+      - name: Tests
+        run: npm test
+
+      # Bloquea solo en alta y critica. Con --audit-level=low cualquier aviso
+      # publicado aguas arriba pondria en rojo un pull request que no ha tocado
+      # nada, y una CI que se pone roja sola acaba ignorandose: el coste real
+      # no son los minutos, es que se deje de mirar.
+      #
+      # Se auditan tambien las dependencias de desarrollo aunque no se
+      # desplieguen: son las que ejecutan el build, y comprometerlas compromete
+      # el artefacto.
+      - name: Vulnerabilidades conocidas
+        run: npm audit --audit-level=high
+
+  dependencias:
+    name: Dependencias nuevas
+    # Solo tiene sentido comparando dos estados: la accion diffea las
+    # dependencias del pull request contra las de la base.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sustituye a OWASP dependency-check, que era lo previsto en el plan.
+      # Motivo: desde que la NVD exige clave de API, dependency-check sin ella
+      # queda limitado y tarda decenas de minutos o falla directamente. Un
+      # control que falla por su propia infraestructura no protege de nada y
+      # entrena a saltarselo.
+      #
+      # Esta accion usa el grafo de dependencias de GitHub, no descarga la NVD,
+      # y responde a la pregunta que de verdad importa en un pull request: esta
+      # rama, introduce una dependencia vulnerable que main no tenia?
+      - name: Revisar las dependencias que anade el pull request
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
