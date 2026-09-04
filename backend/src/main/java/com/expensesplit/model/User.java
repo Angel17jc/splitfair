@@ -31,6 +31,17 @@ public class User {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Fecha de baja, o null si la cuenta esta activa.
+     *
+     * <p>Cuando esta informada, la fila sigue existiendo pero ya no contiene
+     * datos personales: es el rastro anonimo que sostiene los apuntes
+     * contables en los que esta persona participo. Ver
+     * {@code UserService.deleteAccount}.
+     */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

@@ -1,6 +1,7 @@
 package com.expensesplit.controller;
 
 import com.expensesplit.dto.request.ChangePasswordRequest;
+import com.expensesplit.dto.request.DeleteAccountRequest;
 import com.expensesplit.dto.request.UpdateProfileRequest;
 import com.expensesplit.dto.response.UserResponse;
 import com.expensesplit.service.UserService;
@@ -46,5 +47,22 @@ public class UserController {
     public void changePassword(@Valid @RequestBody ChangePasswordRequest request,
                                  Authentication authentication) {
         userService.changePassword(authentication.getName(), request);
+    }
+
+    /**
+     * Da de baja la cuenta.
+     *
+     * <p>DELETE con cuerpo: la contrasena actual no puede ir en la URL, donde
+     * quedaria registrada en los logs de acceso del proxy y en el historial
+     * del navegador. HTTP admite cuerpo en DELETE y nginx lo reenvia.
+     *
+     * <p>204 y no 200: no hay nada que devolver, y quien la ejecuta pierde el
+     * acceso en ese mismo momento.
+     */
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAccount(@Valid @RequestBody DeleteAccountRequest request,
+                              Authentication authentication) {
+        userService.deleteAccount(authentication.getName(), request);
     }
 }
