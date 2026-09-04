@@ -1,0 +1,7 @@
+# Sin esto, el contexto de build incluye target/ entero —el jar solo ya pesa
+# 59 MB— y ademas arriesga que el COPY meta en la imagen clases compiladas en
+# la maquina de desarrollo en vez de las que produce la fase de build.
+target/
+.idea/
+*.iml
+*.log

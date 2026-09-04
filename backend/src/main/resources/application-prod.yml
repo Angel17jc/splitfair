@@ -9,10 +9,35 @@ spring:
     restart:
       enabled: false
 
+  # Margen para que terminen las peticiones en curso durante el apagado
+  # ordenado que activa server.shutdown mas abajo.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
 logging:
   level:
     root: WARN
     com.expensesplit: INFO
+
+server:
+  # En produccion la aplicacion vive detras de nginx, que sirve los estaticos
+  # y reenvia /api al backend. Sin esto, todas las peticiones llegan con la
+  # direccion del contenedor de nginx y el limitador de intentos de login
+  # agrupa a todo el mundo en un solo cupo: cinco fallos de cualquiera dejan
+  # sin entrar a los demas. FRAMEWORK hace que Spring interprete las cabeceras
+  # X-Forwarded-* y devuelva la direccion real en getRemoteAddr().
+  #
+  # Va solo en este perfil, y es deliberado: X-Forwarded-For la envia el propio
+  # cliente. Confiar en ella exige que nadie pueda llegar al backend sin pasar
+  # por el proxy, que es lo que garantiza docker-compose.prod.yml al no
+  # publicar su puerto. En desarrollo no hay proxy, asi que activarla seria
+  # regalar una forma trivial de saltarse el limite rotando la cabecera.
+  forward-headers-strategy: FRAMEWORK
+
+  # Al parar el contenedor, terminar las peticiones en curso antes de cerrar.
+  # Sin esto un despliegue corta a media respuesta a quien estuviera
+  # registrando un gasto, que es justo el momento en que un corte se nota.
+  shutdown: graceful
 
 # En produccion la cookie de sesion se endurece. Sin Secure viajaria tambien
 # por HTTP y bastaria una peticion en claro para capturar treinta dias de

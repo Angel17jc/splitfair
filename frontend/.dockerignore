@@ -1,0 +1,14 @@
+# node_modules se reinstala dentro con npm ci: enviarlo multiplica el tamano
+# del contexto y, peor, meteria binarios compilados para el sistema operativo
+# del anfitrion en una imagen Alpine.
+node_modules
+dist
+
+# Los .env locales apuntan al backend de desarrollo y pueden contener valores
+# que no deben acabar dentro de una imagen que se publica.
+.env
+.env.*
+!.env.example
+
+.idea/
+*.log
