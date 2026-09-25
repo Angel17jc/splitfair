@@ -28,6 +28,22 @@ updates:
       menores:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+        # El framework no viaja dentro del grupo, y esto no es exceso de celo:
+        # el primer grupo generado traia Spring Boot de 3.3.4 a 3.5.16 bajo la
+        # etiqueta "menores". En semver es un minor, pero en Spring son dos
+        # releases de caracteristicas, con su Spring Framework nuevo por
+        # debajo, deprecaciones y cambios de valores por defecto. Los 386 tests
+        # pasaban —se comprobo—, y aun asi eso solo dice que compila y que lo
+        # cubierto sigue funcionando: no dice nada de los comportamientos por
+        # defecto que ningun test fija.
+        #
+        # Excluyendolo del grupo no se deja de proponer: llega en su propio
+        # pull request, que es donde se puede revisar y verificar levantando la
+        # aplicacion. springdoc va con el porque su version esta atada a la de
+        # Boot.
+        exclude-patterns:
+          - "org.springframework.boot:*"
+          - "org.springdoc:*"
     ignore:
       # Cambiar de version mayor de Spring Boot es una migracion con cambios
       # rompientes, no una actualizacion: se planifica, no se fusiona.
