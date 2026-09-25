@@ -28,10 +28,10 @@ jobs:
     name: Backend (tests con PostgreSQL real)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Preparar Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -65,7 +65,7 @@ jobs:
       # evita guardar artefactos de todas las ejecuciones verdes.
       - name: Informes de los tests que fallaron
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports
           path: backend/target/surefire-reports/
@@ -78,10 +78,10 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Preparar Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # La version vive en .nvmrc para que CI, Docker y la maquina de
           # desarrollo no puedan divergir sin que nadie se entere.
@@ -128,7 +128,7 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Sustituye a OWASP dependency-check, que era lo previsto en el plan.
       # Motivo: desde que la NVD exige clave de API, dependency-check sin ella
@@ -140,7 +140,7 @@ jobs:
       # y responde a la pregunta que de verdad importa en un pull request: esta
       # rama, introduce una dependencia vulnerable que main no tenia?
       - name: Revisar las dependencias que anade el pull request
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
