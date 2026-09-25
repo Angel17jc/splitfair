@@ -207,6 +207,15 @@ export interface Expense {
   category: Category
   splitType: SplitType
   expenseDate: string
+  /**
+   * Quien pago, por identificador.
+   *
+   * Es lo que permite decidir si el usuario actual puede editar o borrar el
+   * gasto. Comparar `paidByName` no vale: dos miembros del mismo grupo pueden
+   * llamarse igual, y entonces la interfaz ofreceria acciones que el backend
+   * va a rechazar con un 403.
+   */
+  paidByUserId: number
   paidByName: string
   splits: ExpenseSplit[]
 }

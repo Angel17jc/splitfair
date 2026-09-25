@@ -122,6 +122,12 @@ function conGastoProvisional(paginas: PaginasDeGastos, datos: ExpenseInput): Pag
     category: datos.category ?? 'OTROS',
     splitType: datos.splitType ?? 'EQUAL',
     expenseDate: datos.expenseDate,
+    // Quien paga es siempre quien esta anotando: es dato que el cliente ya
+    // tiene, asi que adelantarlo no incumple el limite de la actualizacion
+    // optimista. El 0 no llega a darse —sin sesion no se puede anotar nada— y
+    // ademas no coincide con ningun usuario real, asi que en el peor caso la
+    // fila se trataria como ajena en vez de ofrecer acciones que fallarian.
+    paidByUserId: usuario?.userId ?? 0,
     paidByName: usuario?.name ?? '',
     // Solo se conserva a cuantos afecta; los importes por persona los decide
     // el backend y aqui quedan a cero, que nunca se pinta.

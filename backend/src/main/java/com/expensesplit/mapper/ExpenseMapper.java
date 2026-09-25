@@ -18,6 +18,7 @@ import java.util.List;
 @Mapper(config = CentralMapperConfig.class)
 public interface ExpenseMapper {
 
+    @Mapping(target = "paidByUserId", source = "paidBy.id")
     @Mapping(target = "paidByName", source = "paidBy.name")
     ExpenseResponse toResponse(Expense expense);
 
