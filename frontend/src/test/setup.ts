@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach } from 'vitest'
 
 /**
@@ -37,3 +37,23 @@ if (typeof HTMLDialogElement !== 'undefined' && !HTMLDialogElement.prototype.sho
     this.dispatchEvent(new Event('close'))
   }
 }
+
+/**
+ * Margen de espera para las utilidades asincronas de Testing Library.
+ *
+ * Por defecto `findBy*` y `waitFor` esperan un segundo. En una maquina
+ * descargada sobra, pero basta que el runner de la CI o la maquina de
+ * desarrollo esten ocupados —compilando el backend, por ejemplo— para que una
+ * consulta que resuelve en dos tandas de React no llegue a tiempo.
+ *
+ * Se aumento tras ver **un** fallo en la suite completa que no se reprodujo en
+ * cuatro ejecuciones posteriores, mientras corrian a la vez la JVM del backend
+ * y el servidor de Vite. No se llego a capturar que test era, asi que esto no
+ * es la correccion de un fallo identificado: es quitar de en medio una clase
+ * entera de fragilidad.
+ *
+ * Subir el limite no debilita ninguna asercion —lo que no aparece sigue sin
+ * aparecer, solo se espera mas antes de darlo por perdido— y a cambio evita el
+ * peor tipo de test: el que falla de vez en cuando sin que nada este mal.
+ */
+configure({ asyncUtilTimeout: 5000 })

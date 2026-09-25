@@ -3,6 +3,7 @@ import Button from '../../components/Button'
 import Card from '../../components/Card'
 import Modal from '../../components/Modal'
 import Skeleton from '../../components/Skeleton'
+import RegistrarPagoModal from './RegistrarPagoModal'
 import { ApiError } from '../../api/errors'
 import { formatearImporte, formatearInstante } from '../../utils/dinero'
 import {
@@ -12,22 +13,30 @@ import {
   useRegistrarPago,
   useSugerencias,
 } from './hooks'
-import type { Settlement, SettlementSuggestion } from '../../types/api'
+import type { GroupMember, Settlement, SettlementSuggestion } from '../../types/api'
 
 interface Props {
   groupId: number
   moneda: string
   miId: number | undefined
   soyAdministrador: boolean
+  miembros: GroupMember[]
 }
 
-export default function SettlementsPanel({ groupId, moneda, miId, soyAdministrador }: Props) {
+export default function SettlementsPanel({
+  groupId,
+  moneda,
+  miId,
+  soyAdministrador,
+  miembros,
+}: Props) {
   const sugerencias = useSugerencias(groupId)
   const historial = useHistorial(groupId)
   const registrar = useRegistrarPago(groupId)
   const confirmar = useConfirmarPago(groupId)
   const cancelar = useCancelarPago(groupId)
   const [explicando, setExplicando] = useState(false)
+  const [registrandoPago, setRegistrandoPago] = useState(false)
 
   const pagos = historial.data?.content ?? []
   const cargando = sugerencias.isPending || historial.isPending
@@ -62,6 +71,20 @@ export default function SettlementsPanel({ groupId, moneda, miId, soyAdministrad
             registrando={registrar.isPending}
             onRegistrar={(s) => registrar.mutate({ paidTo: s.toUserId, amount: s.amount })}
           />
+
+          {/*
+            La salida para todo lo que no encaja en una sugerencia: un pago
+            parcial, uno de mas, o uno a otra persona del grupo. El backend
+            siempre lo acepto; era la interfaz la que solo ofrecia el camino
+            estrecho.
+          */}
+          {miembros.length > 1 && (
+            <div className="mt-3">
+              <Button variante="texto" onClick={() => setRegistrandoPago(true)}>
+                Registrar otro pago
+              </Button>
+            </div>
+          )}
 
           {pagos.length > 0 && (
             <div className="mt-6 border-t border-slate-100 pt-4">
@@ -111,6 +134,17 @@ export default function SettlementsPanel({ groupId, moneda, miId, soyAdministrad
           se ajusta.
         </p>
       </Modal>
+
+      {registrandoPago && (
+        <RegistrarPagoModal
+          groupId={groupId}
+          moneda={moneda}
+          miembros={miembros}
+          miId={miId}
+          sugerencias={sugerencias.data ?? []}
+          onCerrar={() => setRegistrandoPago(false)}
+        />
+      )}
     </Card>
   )
 }

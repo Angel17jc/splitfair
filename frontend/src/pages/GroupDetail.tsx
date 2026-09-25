@@ -113,6 +113,7 @@ export default function GroupDetail() {
             moneda={grupo.currency}
             miId={usuario?.userId}
             soyAdministrador={soyAdministrador}
+            miembros={grupo.members}
           />
 
           {/* La analitica va la ultima: es contexto, no accion. Quien entra
