@@ -198,6 +198,18 @@ export interface ExpenseSplit {
   userId: number
   userName: string
   amountOwed: number
+  /**
+   * Lo que se indico al repartir: porcentaje, partes o importe exacto, segun
+   * el `splitType` del gasto.
+   *
+   * Es lo que permite reabrir un gasto para editarlo con su reparto intacto.
+   * Deducirlo de `amountOwed` solo sale bien cuando la division es exacta: de
+   * 30/15/15 no hay forma de recuperar unas partes 2/1/1.
+   *
+   * `null` en EQUAL —no hay valor que indicar— y en los gastos creados antes
+   * de la migracion V9.
+   */
+  value: number | null
 }
 
 export interface Expense {

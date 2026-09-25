@@ -230,6 +230,10 @@ public class ExpenseService {
                     .expense(expense)
                     .user(reparto.usuarios().get(entradas.get(i).userId()))
                     .amountOwed(importes.get(i))
+                    // Se guarda tambien lo que el cliente indico, no solo el
+                    // resultado: es lo unico que permite reeditar el gasto sin
+                    // perder el reparto.
+                    .splitValue(entradas.get(i).value())
                     .build());
         }
         expense.setSplitType(reparto.tipo());

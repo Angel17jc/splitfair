@@ -131,7 +131,15 @@ function conGastoProvisional(paginas: PaginasDeGastos, datos: ExpenseInput): Pag
     paidByName: usuario?.name ?? '',
     // Solo se conserva a cuantos afecta; los importes por persona los decide
     // el backend y aqui quedan a cero, que nunca se pinta.
-    splits: participantes.map((userId) => ({ userId, userName: '', amountOwed: 0 })),
+    // El valor va a null igual que los importes van a cero: la fila
+    // provisional solo conserva a cuantas personas afecta, y ninguno de los
+    // dos se pinta mientras esta en ese estado.
+    splits: participantes.map((userId) => ({
+      userId,
+      userName: '',
+      amountOwed: 0,
+      value: null,
+    })),
     optimista: true,
   }
 

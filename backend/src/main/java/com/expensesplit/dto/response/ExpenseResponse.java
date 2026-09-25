@@ -39,5 +39,18 @@ public class ExpenseResponse {
         private Long userId;
         private String userName;
         private BigDecimal amountOwed;
+
+        /**
+         * Lo que se indico al repartir: porcentaje, partes o importe exacto,
+         * segun el {@code splitType} del gasto.
+         *
+         * <p>Es el mismo dato que se envia en `splits[].value` al crear o
+         * editar, devuelto tal cual para que el formulario de edicion pueda
+         * reconstruir el reparto en vez de deducirlo de los importes, que solo
+         * sale bien cuando la division es exacta.
+         *
+         * <p>Nulo en EQUAL y en los gastos anteriores a la migracion V9.
+         */
+        private BigDecimal value;
     }
 }

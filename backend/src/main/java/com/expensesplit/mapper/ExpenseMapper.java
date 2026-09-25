@@ -24,6 +24,7 @@ public interface ExpenseMapper {
 
     @Mapping(target = "userId", source = "user.id")
     @Mapping(target = "userName", source = "user.name")
+    @Mapping(target = "value", source = "splitValue")
     ExpenseResponse.SplitResponse toSplitResponse(ExpenseSplit split);
 
     List<ExpenseResponse.SplitResponse> toSplitResponses(List<ExpenseSplit> splits);
