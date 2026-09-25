@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Button from '../../components/Button'
 import Modal from '../../components/Modal'
 import { ApiError } from '../../api/errors'
@@ -24,14 +24,28 @@ export default function InviteModal({ abierto, onCerrar, groupId, nombreDelGrupo
 
   const url = crear.data ? enlaceDeInvitacion(crear.data.token) : null
 
-  useEffect(() => {
-    if (!abierto) {
-      crear.reset()
-      setCopiado(false)
-    }
-    // crear.reset es estable; incluirlo dispararia el efecto en cada render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abierto])
+  /**
+   * Cerrar limpia el link generado y el aviso de copiado.
+   *
+   * Se hace aqui, en el manejador, y no en un efecto sobre `abierto`. Un
+   * efecto que llama a setState provoca un render en cascada: React pinta,
+   * descubre que el estado cambio y vuelve a pintar. Ajustar el estado en
+   * respuesta a una accion del usuario es precisamente para lo que existen los
+   * manejadores.
+   *
+   * Cubre todas las formas de cerrar porque el `<dialog>` nativo emite su
+   * evento `close` con el boton, con Escape y con el clic en el fondo, y
+   * `Modal` lo reenvia por esta misma via.
+   *
+   * Limpiar importa: el link es de **un solo uso**. Si al reabrir siguiera el
+   * anterior, lo natural seria volver a copiarlo y mandarlo a otra persona,
+   * que se encontraria una invitacion ya gastada.
+   */
+  const cerrar = () => {
+    crear.reset()
+    setCopiado(false)
+    onCerrar()
+  }
 
   const copiar = async () => {
     if (!url) return
@@ -50,10 +64,10 @@ export default function InviteModal({ abierto, onCerrar, groupId, nombreDelGrupo
   return (
     <Modal
       abierto={abierto}
-      onCerrar={onCerrar}
+      onCerrar={cerrar}
       titulo={`Invitar a ${nombreDelGrupo}`}
       pie={
-        <Button variante="secundario" onClick={onCerrar}>
+        <Button variante="secundario" onClick={cerrar}>
           Cerrar
         </Button>
       }
