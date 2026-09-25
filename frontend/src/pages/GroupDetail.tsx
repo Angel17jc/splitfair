@@ -8,10 +8,12 @@ import MembersBalances from '../features/balances/MembersBalances'
 import MyBalanceSummary from '../features/balances/MyBalanceSummary'
 import SettlementsPanel from '../features/balances/SettlementsPanel'
 import { useBalances } from '../features/balances/hooks'
-import CreateExpenseModal from '../features/expenses/CreateExpenseModal'
+import ExpenseModal from '../features/expenses/ExpenseModal'
+import BorrarGastoModal from '../features/expenses/BorrarGastoModal'
 import ExpenseList from '../features/expenses/ExpenseList'
 import InviteModal from '../features/groups/InviteModal'
 import { useGrupo } from '../features/groups/hooks'
+import type { Expense } from '../types/api'
 import { useAuth } from '../features/auth/useAuth'
 
 export default function GroupDetail() {
@@ -19,6 +21,8 @@ export default function GroupDetail() {
   const { usuario } = useAuth()
   const [invitando, setInvitando] = useState(false)
   const [anadiendoGasto, setAnadiendoGasto] = useState(false)
+  const [gastoEnEdicion, setGastoEnEdicion] = useState<Expense | null>(null)
+  const [gastoABorrar, setGastoABorrar] = useState<Expense | null>(null)
 
   const id = Number(groupId)
   const { data: grupo, isPending, isError, error, refetch } = useGrupo(id)
@@ -80,6 +84,10 @@ export default function GroupDetail() {
             moneda={grupo.currency}
             miembros={grupo.members}
             onAnadir={() => setAnadiendoGasto(true)}
+            miId={usuario?.userId}
+            soyAdministrador={soyAdministrador}
+            onEditar={setGastoEnEdicion}
+            onBorrar={setGastoABorrar}
           />
         </div>
 
@@ -114,12 +122,37 @@ export default function GroupDetail() {
         </div>
       </div>
 
-      <CreateExpenseModal
+      <ExpenseModal
         abierto={anadiendoGasto}
         onCerrar={() => setAnadiendoGasto(false)}
         groupId={grupo.id}
         miembros={grupo.members}
       />
+
+      {/*
+        Modal aparte para editar, y con `key` por gasto: los valores iniciales
+        del formulario se calculan al montar, asi que reutilizar la misma
+        instancia mostraria los datos del gasto anterior al abrir el siguiente.
+      */}
+      {gastoEnEdicion && (
+        <ExpenseModal
+          key={gastoEnEdicion.id}
+          abierto
+          onCerrar={() => setGastoEnEdicion(null)}
+          groupId={grupo.id}
+          miembros={grupo.members}
+          gasto={gastoEnEdicion}
+        />
+      )}
+
+      {gastoABorrar && (
+        <BorrarGastoModal
+          gasto={gastoABorrar}
+          groupId={grupo.id}
+          moneda={grupo.currency}
+          onCerrar={() => setGastoABorrar(null)}
+        />
+      )}
 
       <InviteModal
         abierto={invitando}

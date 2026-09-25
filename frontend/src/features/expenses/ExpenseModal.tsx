@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useId, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,11 +8,17 @@ import Modal from '../../components/Modal'
 import Select from '../../components/Select'
 import { aplicarErrorDeApi } from '../../utils/formularios'
 import { hoyISO, parsearImporte } from '../../utils/dinero'
-import { CATEGORIAS, TIPOS_DE_REPARTO, type GroupMember, type SplitInput } from '../../types/api'
+import {
+  CATEGORIAS,
+  TIPOS_DE_REPARTO,
+  type Expense,
+  type GroupMember,
+  type SplitInput,
+} from '../../types/api'
 import { ETIQUETA_DE_CATEGORIA } from './categorias'
 import { aCentimos, comprobarCuadre, MODOS_DE_REPARTO } from './reparto'
 import SplitEditor from './SplitEditor'
-import { useCrearGasto } from './hooks'
+import { useActualizarGasto, useCrearGasto } from './hooks'
 
 const esquema = z
   .object({
@@ -64,24 +70,76 @@ interface Props {
   onCerrar: () => void
   groupId: number
   miembros: GroupMember[]
+  /**
+   * El gasto que se esta editando, o nada para crear uno nuevo.
+   *
+   * El padre debe montar este componente con una `key` distinta por gasto:
+   * los valores iniciales del formulario se calculan al montar, y sin la key
+   * reabrirlo con otro gasto mostraria los datos del anterior.
+   */
+  gasto?: Expense
 }
 
-export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembros }: Props) {
+export default function ExpenseModal({ abierto, onCerrar, groupId, miembros, gasto }: Props) {
   const crear = useCrearGasto(groupId)
+  const actualizar = useActualizarGasto(groupId)
+  const editando = gasto !== undefined
 
-  const porDefecto = useMemo(
-    () => ({
-      description: '',
-      amount: '',
-      expenseDate: hoyISO(),
-      category: 'OTROS' as const,
-      splitType: 'EQUAL' as const,
-      // Por defecto se reparte entre todos, que es el caso habitual.
-      participantes: miembros.map((m) => m.userId),
-      valores: {} as Record<string, string>,
-    }),
-    [miembros],
-  )
+  /**
+   * Identificador propio del formulario.
+   *
+   * El boton de envio vive en el pie del modal, fuera del `<form>`, y se
+   * enlaza con el atributo `form`. Con un id fijo eso se rompe en cuanto hay
+   * **dos instancias montadas** —una para crear y otra para editar—: los dos
+   * formularios comparten id, el navegador resuelve el atributo contra el
+   * primero del documento, y el boton de "Guardar cambios" acaba enviando el
+   * formulario vacio del modal de alta, que esta cerrado.
+   *
+   * El sintoma era desconcertante: al guardar no pasaba nada, sin error y sin
+   * ninguna peticion de red. Solo se ve en un navegador; con una sola
+   * instancia montada, como en los tests, no ocurre.
+   */
+  const idFormulario = useId()
+
+  const porDefecto = useMemo(() => {
+    if (!gasto) {
+      return {
+        description: '',
+        amount: '',
+        expenseDate: hoyISO(),
+        category: 'OTROS' as const,
+        splitType: 'EQUAL' as const,
+        // Por defecto se reparte entre todos, que es el caso habitual.
+        participantes: miembros.map((m) => m.userId),
+        valores: {} as Record<string, string>,
+      }
+    }
+
+    // Los gastos anteriores a la migracion V9 no guardaron el valor de cada
+    // parte, solo el importe. Para esos se cae a "cantidades exactas" con los
+    // importes que ya tenian: es lo unico fiel que se puede ofrecer, porque de
+    // unos importes no se recuperan ni los porcentajes ni las partes. El
+    // reparto no cambia; lo que cambia es como se describe.
+    const faltanValores = gasto.splits.some((s) => s.value === null)
+    const tipo =
+      gasto.splitType === 'EQUAL' || !faltanValores ? gasto.splitType : ('EXACT' as const)
+
+    return {
+      description: gasto.description,
+      // Siempre con dos decimales: la API devuelve 40 para 40,00.
+      amount: gasto.amount.toFixed(2),
+      expenseDate: gasto.expenseDate,
+      category: gasto.category,
+      splitType: tipo,
+      participantes: gasto.splits.map((s) => s.userId),
+      valores: Object.fromEntries(
+        gasto.splits.map((s) => [
+          String(s.userId),
+          String(s.value ?? s.amountOwed.toFixed(2)),
+        ]),
+      ) as Record<string, string>,
+    }
+  }, [gasto, miembros])
 
   const {
     register,
@@ -144,14 +202,20 @@ export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembro
           }))
 
     try {
-      await crear.mutateAsync({
+      const cuerpo = {
         description: datos.description,
         amount: importe,
         expenseDate: datos.expenseDate,
         category: datos.category,
         splitType: datos.splitType,
         ...(splits ? { splits } : { splitBetweenUserIds: datos.participantes }),
-      })
+      }
+
+      if (gasto) {
+        await actualizar.mutateAsync({ expenseId: gasto.id, datos: cuerpo })
+      } else {
+        await crear.mutateAsync(cuerpo)
+      }
       onCerrar()
     } catch (error) {
       aplicarErrorDeApi(error, setError, CAMPOS)
@@ -174,19 +238,19 @@ export default function CreateExpenseModal({ abierto, onCerrar, groupId, miembro
     <Modal
       abierto={abierto}
       onCerrar={onCerrar}
-      titulo="Nuevo gasto"
+      titulo={editando ? 'Editar gasto' : 'Nuevo gasto'}
       pie={
         <>
           <Button variante="secundario" onClick={onCerrar} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button type="submit" form="form-gasto" cargando={isSubmitting}>
-            {isSubmitting ? 'Guardando...' : 'Anadir gasto'}
+          <Button type="submit" form={idFormulario} cargando={isSubmitting}>
+            {isSubmitting ? 'Guardando...' : editando ? 'Guardar cambios' : 'Anadir gasto'}
           </Button>
         </>
       }
     >
-      <form id="form-gasto" onSubmit={enviar} className="space-y-4" noValidate>
+      <form id={idFormulario} onSubmit={enviar} className="space-y-4" noValidate>
         {errors.root && (
           <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
             {errors.root.message}

@@ -7,16 +7,31 @@ import Skeleton from '../../components/Skeleton'
 import ExpenseFiltersBar from './ExpenseFilters'
 import ExpenseItem from './ExpenseItem'
 import { useGastos } from './hooks'
-import type { ExpenseFilters, GroupMember } from '../../types/api'
+import type { Expense, ExpenseFilters, GroupMember } from '../../types/api'
 
 interface Props {
   groupId: number
   moneda: string
   miembros: GroupMember[]
   onAnadir: () => void
+  /** Id del usuario actual, para saber que gastos pago el. */
+  miId?: number
+  /** Un administrador puede gestionar los gastos de cualquiera. */
+  soyAdministrador: boolean
+  onEditar: (gasto: Expense) => void
+  onBorrar: (gasto: Expense) => void
 }
 
-export default function ExpenseList({ groupId, moneda, miembros, onAnadir }: Props) {
+export default function ExpenseList({
+  groupId,
+  moneda,
+  miembros,
+  onAnadir,
+  miId,
+  soyAdministrador,
+  onEditar,
+  onBorrar,
+}: Props) {
   const [filtros, setFiltros] = useState<ExpenseFilters>({})
   const {
     data,
@@ -73,7 +88,18 @@ export default function ExpenseList({ groupId, moneda, miembros, onAnadir }: Pro
         <>
           <ul className="divide-y divide-slate-100">
             {gastos.map((gasto) => (
-              <ExpenseItem key={gasto.id} gasto={gasto} moneda={moneda} />
+              <ExpenseItem
+                key={gasto.id}
+                gasto={gasto}
+                moneda={moneda}
+                /* Las mismas dos condiciones que aplica el backend: el
+                   pagador corrige lo suyo, el administrador lo de todos. Se
+                   comparan identificadores y no nombres, que es justo para lo
+                   que existe paidByUserId: dos miembros pueden llamarse igual. */
+                {...(soyAdministrador || gasto.paidByUserId === miId
+                  ? { onEditar: () => onEditar(gasto), onBorrar: () => onBorrar(gasto) }
+                  : {})}
+              />
             ))}
           </ul>
 

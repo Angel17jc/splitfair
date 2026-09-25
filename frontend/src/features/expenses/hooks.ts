@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type InfiniteData,
 } from '@tanstack/react-query'
-import { crearGasto, listarGastos } from '../../api/expenses'
+import { actualizarGasto, borrarGasto, crearGasto, listarGastos } from '../../api/expenses'
 import { sesion } from '../../api/session'
 import { clavesDeBalances } from '../balances/claves'
 import { clavesDeGrupos } from '../groups/claves'
@@ -96,6 +96,56 @@ export function useCrearGasto(groupId: number) {
       // Y los saldos del grupo, que es lo que el gasto acaba de cambiar de
       // verdad: sin esto el panel de balances se queda con las cifras de
       // antes, que es peor que verlas cargando porque parecen correctas.
+      queryClient.invalidateQueries({ queryKey: clavesDeBalances.deGrupo(groupId) })
+    },
+  })
+}
+
+/**
+ * Edita un gasto.
+ *
+ * <b>Sin actualizacion optimista</b>, y es deliberado. Cambiar el importe o el
+ * reparto obliga a recalcular cuanto le toca a cada uno, y eso lo decide el
+ * backend con aritmetica entera de centimos. Adelantarlo aqui significaria
+ * dividir en coma flotante y ensenar cifras que pueden diferir en un centimo
+ * de las que se guarden, que es peor que esperar medio segundo.
+ *
+ * La invalidacion es la misma que al crear, y por los mismos motivos: el
+ * listado, el saldo que cada fila del dashboard muestra, y los balances del
+ * grupo.
+ */
+export function useActualizarGasto(groupId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ expenseId, datos }: { expenseId: number; datos: ExpenseInput }) =>
+      actualizarGasto(expenseId, datos),
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: clavesDeGastos.deGrupo(groupId) })
+      queryClient.invalidateQueries({ queryKey: clavesDeGrupos.listas() })
+      queryClient.invalidateQueries({ queryKey: clavesDeBalances.deGrupo(groupId) })
+    },
+  })
+}
+
+/**
+ * Borra un gasto.
+ *
+ * Tampoco se adelanta: quitar la fila de la lista si seria dato conocido, pero
+ * los balances que quedan al lado no, y una lista sin el gasto junto a unos
+ * saldos que todavia lo incluyen es una pantalla incoherente. Mejor que ambos
+ * cambien a la vez.
+ */
+export function useBorrarGasto(groupId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (expenseId: number) => borrarGasto(expenseId),
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: clavesDeGastos.deGrupo(groupId) })
+      queryClient.invalidateQueries({ queryKey: clavesDeGrupos.listas() })
       queryClient.invalidateQueries({ queryKey: clavesDeBalances.deGrupo(groupId) })
     },
   })
