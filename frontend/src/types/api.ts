@@ -106,6 +106,17 @@ export interface ChangePasswordInput {
   newPassword: string
 }
 
+/**
+ * Baja de cuenta. Solo la contrasena actual: no hay nada mas que decidir.
+ *
+ * Se exige aunque el usuario ya este autenticado, por lo mismo que en el
+ * cambio de contrasena y con mas motivo: un access token robado no debe
+ * bastar para destruir la cuenta, y la operacion no tiene vuelta atras.
+ */
+export interface DeleteAccountInput {
+  currentPassword: string
+}
+
 // --- grupos ----------------------------------------------------------------
 
 export type GroupRole = 'ADMIN' | 'MEMBER'

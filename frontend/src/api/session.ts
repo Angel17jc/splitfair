@@ -55,6 +55,18 @@ export const sesion = {
   },
 
   /**
+   * Actualiza el nombre sin tocar las credenciales.
+   *
+   * Cambiar el nombre no emite un token nuevo, asi que no se puede reutilizar
+   * `abrir`: se perderia el access token, que no viene en esa respuesta.
+   */
+  renombrar(nombre: string) {
+    if (usuario) {
+      usuario = { ...usuario, name: nombre }
+    }
+  },
+
+  /**
    * Borra el token de memoria.
    *
    * No hay nada mas que limpiar: la cookie la borra el backend con su

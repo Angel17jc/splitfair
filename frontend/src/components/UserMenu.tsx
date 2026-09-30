@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../features/auth/useAuth'
+import { Link } from 'react-router-dom'
 import Button from './Button'
 
 /**
@@ -73,12 +74,21 @@ export default function UserMenu() {
                 fuera de la pantalla en un movil. */}
             <p className="truncate text-xs text-slate-500">{usuario.email}</p>
           </div>
+          <Link
+            to="/cuenta"
+            role="menuitem"
+            onClick={() => setAbierto(false)}
+            className="mt-1 block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          >
+            Tu cuenta
+          </Link>
+
           <Button
             variante="texto"
             ancho
             cargando={saliendo}
             role="menuitem"
-            className="mt-1 justify-start"
+            className="justify-start"
             onClick={async () => {
               // No se cierra el menu antes de tiempo: si salir falla, el
               // usuario sigue dentro y debe poder volver a intentarlo.

@@ -127,9 +127,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     }
   }, [queryClient])
 
+  const renombrar = useCallback((nombre: string) => {
+    sesionEnMemoria.renombrar(nombre)
+    setUsuario((antes) => (antes ? { ...antes, name: nombre } : antes))
+  }, [])
+
   const valor = useMemo(
-    () => ({ estado, usuario, entrar, registrarse, salir }),
-    [estado, usuario, entrar, registrarse, salir],
+    () => ({ estado, usuario, entrar, registrarse, salir, renombrar }),
+    [estado, usuario, entrar, registrarse, salir, renombrar],
   )
 
   return <ContextoDeSesion.Provider value={valor}>{children}</ContextoDeSesion.Provider>

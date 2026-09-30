@@ -3,6 +3,7 @@ import Login from '../pages/Login'
 import Register from '../pages/Register'
 import Dashboard from '../pages/Dashboard'
 import GroupDetail from '../pages/GroupDetail'
+import Account from '../pages/Account'
 import InvitationLanding from '../pages/InvitationLanding'
 import NotFound from '../pages/NotFound'
 import Layout from '../components/Layout'
@@ -32,6 +33,7 @@ export default function AppRoutes() {
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/grupos/:groupId" element={<GroupDetail />} />
+          <Route path="/cuenta" element={<Account />} />
         </Route>
       </Route>
 

@@ -26,6 +26,7 @@ function conSesion(estado: EstadoDeSesion): Sesion {
       throw new Error('no se usa en este test')
     },
     salir: async () => {},
+    renombrar: () => {},
   }
 }
 

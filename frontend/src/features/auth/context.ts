@@ -25,6 +25,15 @@ export interface Sesion {
   entrar(datos: LoginInput): Promise<Auth>
   registrarse(datos: RegisterInput): Promise<Auth>
   salir(): Promise<void>
+  /**
+   * Refleja un cambio de nombre ya guardado en el servidor.
+   *
+   * Vive en el contexto y no solo en el modulo de sesion porque lo que pinta
+   * la cabecera es el estado de React: actualizar unicamente la copia en
+   * memoria dejaria el menu mostrando el nombre viejo hasta la siguiente
+   * recarga.
+   */
+  renombrar(nombre: string): void
 }
 
 export const ContextoDeSesion = createContext<Sesion | null>(null)
