@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import Card from '../components/Card'
 import ErrorState from '../components/ErrorState'
 import Skeleton from '../components/Skeleton'
@@ -12,6 +12,7 @@ import ExpenseModal from '../features/expenses/ExpenseModal'
 import BorrarGastoModal from '../features/expenses/BorrarGastoModal'
 import ExpenseList from '../features/expenses/ExpenseList'
 import InviteModal from '../features/groups/InviteModal'
+import MiembrosModal from '../features/groups/MiembrosModal'
 import { useGrupo } from '../features/groups/hooks'
 import type { Expense } from '../types/api'
 import { useAuth } from '../features/auth/useAuth'
@@ -23,6 +24,8 @@ export default function GroupDetail() {
   const [anadiendoGasto, setAnadiendoGasto] = useState(false)
   const [gastoEnEdicion, setGastoEnEdicion] = useState<Expense | null>(null)
   const [gastoABorrar, setGastoABorrar] = useState<Expense | null>(null)
+  const [gestionandoMiembros, setGestionandoMiembros] = useState(false)
+  const navegar = useNavigate()
 
   const id = Number(groupId)
   const { data: grupo, isPending, isError, error, refetch } = useGrupo(id)
@@ -106,6 +109,7 @@ export default function GroupDetail() {
             error={balances.isError ? balances.error : null}
             onReintentar={() => balances.refetch()}
             onInvitar={soyAdministrador ? () => setInvitando(true) : undefined}
+            onGestionar={() => setGestionandoMiembros(true)}
           />
 
           <SettlementsPanel
@@ -152,6 +156,21 @@ export default function GroupDetail() {
           groupId={grupo.id}
           moneda={grupo.currency}
           onCerrar={() => setGastoABorrar(null)}
+        />
+      )}
+
+      {gestionandoMiembros && (
+        <MiembrosModal
+          groupId={grupo.id}
+          miembros={grupo.members}
+          balances={balances.data?.balances}
+          moneda={grupo.currency}
+          miId={usuario?.userId}
+          soyAdministrador={soyAdministrador}
+          onCerrar={() => setGestionandoMiembros(false)}
+          /* Al salir ya no se es miembro: quedarse aqui provocaria un 403 en
+             la siguiente consulta del grupo. */
+          onSali={() => navegar('/dashboard', { replace: true })}
         />
       )}
 

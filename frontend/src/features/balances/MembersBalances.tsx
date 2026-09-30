@@ -19,6 +19,9 @@ interface Props {
   error: unknown
   onReintentar: () => void
   onInvitar?: () => void
+  /** Abre la gestion de miembros. Disponible para todos: salir del grupo no
+      es una accion de administrador. */
+  onGestionar: () => void
 }
 
 /**
@@ -43,6 +46,7 @@ export default function MembersBalances({
   error,
   onReintentar,
   onInvitar,
+  onGestionar,
 }: Props) {
   const rolDe = new Map(miembros.map((m) => [m.userId, m.role]))
   const ordenados = balances ? [...balances].sort((a, b) => b.netBalance - a.netBalance) : []
@@ -59,11 +63,16 @@ export default function MembersBalances({
           invitar. Mostrarlo a todos y dejar que el backend responda 403 seria
           ensenar una puerta que no abre.
         */}
-        {onInvitar && (
-          <Button variante="secundario" onClick={onInvitar}>
-            Invitar
+        <div className="flex gap-2">
+          <Button variante="texto" onClick={onGestionar}>
+            Miembros
           </Button>
-        )}
+          {onInvitar && (
+            <Button variante="secundario" onClick={onInvitar}>
+              Invitar
+            </Button>
+          )}
+        </div>
       </div>
 
       {cargando ? (
