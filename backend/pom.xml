@@ -26,7 +26,7 @@
              HTTP 400, de modo que Testcontainers no encuentra el entorno.
              Overridable: -Ddocker.api.version=1.43 -->
         <docker.api.version>1.44</docker.api.version>
-        <logstash.encoder.version>8.0</logstash.encoder.version>
+        <logstash.encoder.version>9.0</logstash.encoder.version>
         <bucket4j.version>8.20.0</bucket4j.version>
     </properties>
 
