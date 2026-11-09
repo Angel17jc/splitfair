@@ -39,11 +39,28 @@ updates:
         #
         # Excluyendolo del grupo no se deja de proponer: llega en su propio
         # pull request, que es donde se puede revisar y verificar levantando la
-        # aplicacion. springdoc va con el porque su version esta atada a la de
-        # Boot.
+        # aplicacion.
         exclude-patterns:
           - "org.springframework.boot:*"
           - "org.springdoc:*"
+      # Boot y springdoc viajan juntos, en un pull request propio.
+      #
+      # Separados, ninguno de los dos puede pasar nunca, y esta medido: con la
+      # primera version de esta configuracion llegaron en dos pull requests
+      # distintos, y los dos se quedaron en rojo semanas.
+      #
+      # - Boot 3.5 con springdoc 2.6: NoSuchMethodError en el constructor de
+      #   ControllerAdviceBean, que Spring Framework 6.2 retiro.
+      # - springdoc 2.10 con Boot 3.3: NoClassDefFoundError de
+      #   LiteWebJarsResourceResolver, que solo existe desde Framework 6.2.
+      #
+      # Un grupo de Dependabot es la forma de decir "estos dos se actualizan a
+      # la vez o no se actualizan".
+      framework:
+        patterns:
+          - "org.springframework.boot:*"
+          - "org.springdoc:*"
+        update-types: ["minor", "patch"]
     ignore:
       # Cambiar de version mayor de Spring Boot es una migracion con cambios
       # rompientes, no una actualizacion: se planifica, no se fusiona.
