@@ -20,16 +20,17 @@ export const esquemaDeGasto = z
     amount: z
       .string()
       .min(1, 'Indica el importe')
-      .refine((texto) => parsearImporte(texto) !== null, {
-        message: 'Importe no valido. Usa como maximo dos decimales, por ejemplo 12,50',
-      }),
+      .refine(
+        (texto) => parsearImporte(texto) !== null,
+        'Importe no valido. Usa como maximo dos decimales, por ejemplo 12,50',
+      ),
     expenseDate: z.string().min(1, 'Indica la fecha'),
     category: z.enum(CATEGORIAS),
     splitType: z.enum(TIPOS_DE_REPARTO),
     participantes: z
       .array(z.number())
       .min(1, 'Elige al menos una persona entre las que repartir'),
-    valores: z.record(z.string()),
+    valores: z.record(z.string(), z.string()),
   })
   /**
    * El cuadre depende de tres campos a la vez —modo, importe y valores— asi
@@ -47,7 +48,7 @@ export const esquemaDeGasto = z
     const cuadre = comprobarCuadre(datos.splitType, valores, total)
 
     if (!cuadre.valido) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['valores'], message: cuadre.mensaje })
+      ctx.addIssue({ code: 'custom', path: ['valores'], message: cuadre.mensaje })
     }
   })
 

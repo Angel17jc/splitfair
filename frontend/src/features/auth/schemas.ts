@@ -12,10 +12,19 @@ import { z } from 'zod'
  * y se pinta bajo el campo correspondiente.
  */
 
+/**
+ * El formato solo se comprueba si hay algo escrito.
+ *
+ * Con `pipe`, el segundo esquema no llega a ejecutarse si el primero falla, asi
+ * que un campo vacio da un unico error, "obligatorio", y no ademas uno de
+ * formato que a quien no ha escrito nada no le dice que hacer. La alternativa
+ * obvia, `z.email().min(1)`, lo invierte: el formato se evalua antes y es el
+ * mensaje que sale.
+ */
 const email = z
   .string()
   .min(1, 'El email es obligatorio')
-  .email('El email no tiene un formato valido')
+  .pipe(z.email('El email no tiene un formato valido'))
 
 export const esquemaDeAcceso = z.object({
   email,
