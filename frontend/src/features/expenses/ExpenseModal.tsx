@@ -1,7 +1,6 @@
 import { useEffect, useId, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import Button from '../../components/Button'
 import Input from '../../components/Input'
 import Modal from '../../components/Modal'
@@ -17,51 +16,9 @@ import {
 } from '../../types/api'
 import { ETIQUETA_DE_CATEGORIA } from './categorias'
 import { aCentimos, comprobarCuadre, MODOS_DE_REPARTO } from './reparto'
+import { esquemaDeGasto, type DatosDeGasto } from './schemas'
 import SplitEditor from './SplitEditor'
 import { useActualizarGasto, useCrearGasto } from './hooks'
-
-const esquema = z
-  .object({
-    description: z
-      .string()
-      .trim()
-      .min(1, 'Describe el gasto')
-      .max(255, 'La descripcion es demasiado larga'),
-    amount: z
-      .string()
-      .min(1, 'Indica el importe')
-      .refine((texto) => parsearImporte(texto) !== null, {
-        message: 'Importe no valido. Usa como maximo dos decimales, por ejemplo 12,50',
-      }),
-    expenseDate: z.string().min(1, 'Indica la fecha'),
-    category: z.enum(CATEGORIAS),
-    splitType: z.enum(TIPOS_DE_REPARTO),
-    participantes: z
-      .array(z.number())
-      .min(1, 'Elige al menos una persona entre las que repartir'),
-    valores: z.record(z.string()),
-  })
-  /**
-   * El cuadre depende de tres campos a la vez —modo, importe y valores— asi
-   * que no puede validarse campo a campo. Se comprueba aqui, sobre el objeto
-   * completo, y con la misma funcion que alimenta el indicador en vivo: una
-   * sola definicion de "cuadra", en vez de dos que pueden discrepar.
-   */
-  .superRefine((datos, ctx) => {
-    if (datos.splitType === 'EQUAL') return
-
-    const total = aCentimos(datos.amount)
-    if (total === null) return // ya hay un error en el importe
-
-    const valores = datos.participantes.map((id) => datos.valores[String(id)] ?? '')
-    const cuadre = comprobarCuadre(datos.splitType, valores, total)
-
-    if (!cuadre.valido) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['valores'], message: cuadre.mensaje })
-    }
-  })
-
-type Datos = z.infer<typeof esquema>
 
 const CAMPOS = ['description', 'amount', 'expenseDate', 'category'] as const
 
@@ -149,7 +106,7 @@ export default function ExpenseModal({ abierto, onCerrar, groupId, miembros, gas
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<Datos>({ resolver: zodResolver(esquema), defaultValues: porDefecto })
+  } = useForm<DatosDeGasto>({ resolver: zodResolver(esquemaDeGasto), defaultValues: porDefecto })
 
   const splitType = watch('splitType')
   const participantes = watch('participantes')

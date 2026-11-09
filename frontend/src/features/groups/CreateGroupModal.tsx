@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
-import { z } from 'zod'
 import Button from '../../components/Button'
 import Input from '../../components/Input'
 import Modal from '../../components/Modal'
@@ -10,18 +9,7 @@ import Select from '../../components/Select'
 import { aplicarErrorDeApi } from '../../utils/formularios'
 import { useCrearGrupo } from './mutaciones'
 import { MONEDAS, MONEDA_POR_DEFECTO } from './monedas'
-
-const esquema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'El nombre es obligatorio')
-    .max(100, 'El nombre no puede pasar de 100 caracteres'),
-  description: z.string().trim().max(255, 'La descripcion es demasiado larga').optional(),
-  currency: z.string().length(3),
-})
-
-type Datos = z.infer<typeof esquema>
+import { esquemaDeGrupo, type DatosDeGrupo } from './schemas'
 
 const CAMPOS = ['name', 'description', 'currency'] as const
 
@@ -40,8 +28,8 @@ export default function CreateGroupModal({ abierto, onCerrar }: Props) {
     setError,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<Datos>({
-    resolver: zodResolver(esquema),
+  } = useForm<DatosDeGrupo>({
+    resolver: zodResolver(esquemaDeGrupo),
     defaultValues: { name: '', description: '', currency: MONEDA_POR_DEFECTO },
   })
 
