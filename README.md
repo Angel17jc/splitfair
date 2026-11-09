@@ -343,7 +343,9 @@ vivos dejan de valer al instante, porque llevan el correo como sujeto y ese
 correo ya no existe. El correo original queda libre: quien quiera puede volver
 a registrarse, y será una cuenta nueva sin relación con los apuntes anteriores.
 
-Todavía **no hay pantalla** para hacerlo; solo la API.
+Desde la interfaz está en **Tu cuenta** (`/cuenta`), junto al cambio de nombre
+y de contraseña. Las dos operaciones destructivas cierran la sesión al
+terminar, porque en el servidor ya está muerta.
 
 ---
 
@@ -469,7 +471,7 @@ y sus equivalentes de registro.
 
 ```bash
 cd backend
-./mvnw clean test          # suite completa (386 tests)
+./mvnw clean test          # suite completa (392 tests)
 ./mvnw clean test -Dtest=NombreTest
 ```
 
@@ -483,7 +485,7 @@ Frontend, con **Vitest + Testing Library** sobre jsdom:
 
 ```bash
 cd frontend
-npm test            # suite completa (49 tests)
+npm test            # suite completa (109 tests)
 npm run test:watch  # en vigilancia, mientras desarrollas
 npx tsc --noEmit    # tipos
 npm run lint
@@ -607,7 +609,7 @@ Para desplegarlo, la [guía de despliegue](docs/DESPLIEGUE.md).
 
 ### Backend: terminado
 
-- ✅ Modelo de datos, migraciones Flyway (8) y **386 tests** con PostgreSQL real
+- ✅ Modelo de datos, migraciones Flyway (9) y **392 tests** con PostgreSQL real
 - ✅ Autenticación de nivel producto: rotación de refresh tokens con detección
   de reutilización, cookie `HttpOnly`, rate limiting por IP y por email
 - ✅ Grupos, roles, invitaciones por link de un solo uso
@@ -627,9 +629,14 @@ Para desplegarlo, la [guía de despliegue](docs/DESPLIEGUE.md).
 - ✅ Listado y detalle de grupos, con el saldo propio en cada uno
 - ✅ Crear grupo, invitar por link y pantalla pública de aceptación
 - ✅ Gastos con filtros, scroll infinito y los cuatro modos de reparto
+- ✅ Editar y borrar gastos (quien lo pagó o un administrador), conservando el
+  modo de reparto: un 70/30 sigue siendo 70/30 al cambiar el importe
 - ✅ Balances con desglose, liquidaciones sugeridas y confirmación de pagos
+- ✅ Registrar un pago libre, a cualquier miembro y por cualquier importe
+- ✅ Gestión de miembros: cambiar de rol, expulsar y salir del grupo
+- ✅ Pantalla de cuenta: nombre, contraseña y baja
 - ✅ Analítica del gasto por categoría y por mes
-- ✅ **49 tests** con Vitest + Testing Library
+- ✅ **109 tests** con Vitest + Testing Library
 
 ### Producción
 
@@ -642,12 +649,12 @@ Para desplegarlo, la [guía de despliegue](docs/DESPLIEGUE.md).
 
 ### Lo que falta
 
-- ⬜ Editar y borrar gastos desde la interfaz. Los endpoints existen; falta un
-  hueco del contrato: `Expense` trae `paidByName` pero no `paidByUserId`, así
-  que no hay forma fiable de saber si el usuario actual pagó el gasto.
-- ⬜ Cambiar de rol y expulsar miembros desde la interfaz.
-- ⬜ Registrar un pago que no salga de una sugerencia.
-- ⬜ Pantalla para darse de baja.
+Todas las pantallas previstas existen. Lo pendiente es de mantenimiento:
+
+- ⬜ **Spring Boot fuera de soporte.** El proyecto está en 3.3.4, y la rama 3.3
+  dejó de recibir parches el 30 de junio de 2025; la 3.5 también los dejó el
+  30 de junio de 2026. La única con soporte es la 4.x, y pasar a ella es una
+  migración (Spring Framework 7, springdoc 3), no una actualización.
 
 ### Deuda conocida
 

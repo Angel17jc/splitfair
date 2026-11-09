@@ -4,8 +4,8 @@ App de gastos compartidos entre grupos (roommates, viajes). Este documento es la
 hoja de ruta viva del proyecto: se actualiza al cerrar cada fase.
 
 - **Repo:** https://github.com/Angel17jc/splitfair
-- **Última revisión:** 2026-08-20
-- **Estado:** Fases 0-8 **completadas** (62 commits · 386 tests de backend y 49 de frontend, todos en verde). El plan esta terminado; lo que queda son mejoras de interfaz, listadas al final.
+- **Última revisión:** 2026-11-08
+- **Estado:** Fases 0-8 **completadas**, y también las cuatro pantallas que quedaron fuera (editar y borrar gastos, pago libre, miembros y roles, cuenta). 392 tests de backend y 109 de frontend. Lo pendiente es mantenimiento, no producto: Spring Boot 3.3 está fuera de soporte desde junio de 2025. Ver «Lo que falta» en el [README](README.md#lo-que-falta).
 
 ---
 
@@ -496,7 +496,7 @@ PERCENTAGE y SHARES quedan guardados sumando exactamente el importe.
   esa persona la lista se acaba antes de tiempo y nada indica que falte algo.
 - **`Expense` trae `paidByName` pero no `paidByUserId`.** No hay forma fiable de saber si el
   usuario actual pagó un gasto —dos miembros pueden llamarse igual—, y hará falta para ofrecer
-  editar y borrar, que son del pagador o de un administrador. Pendiente para cuando toque.
+  editar y borrar, que son del pagador o de un administrador. Resuelto en `f69a090`.
 - El listado de gastos viene ordenado por fecha descendente, y el de grupos del más reciente al
   más antiguo. No estaba documentado; se comprobó contra la API.
 
