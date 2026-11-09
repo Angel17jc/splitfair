@@ -94,6 +94,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: react-router-dom
         update-types: ["version-update:semver-major"]
+      # Tailwind 4 esta en "Descartado deliberadamente" de PLAN.md. Es una
+      # migracion —configuracion en CSS, utilidades renombradas, navegadores
+      # minimos mas recientes—, no una actualizacion, y su pull request llevaba
+      # cinco semanas en rojo contra una decision ya tomada.
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
 
   # Las propias acciones son codigo de terceros que corre con acceso al
   # repositorio: se actualizan como cualquier otra dependencia. Aqui si se
